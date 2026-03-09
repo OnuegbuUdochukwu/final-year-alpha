@@ -81,7 +81,7 @@ This phase is broken down into 12 granular, actionable tasks to establish the ne
 - [ ] 1.1.3 Cloud Environment Provisioning (Initial)
 - [ ] 1.1.4 Project Management Tool Setup
 - [x] 1.2.1 SQL Database Schema DDL Implementation
-- [ ] 1.2.2 NoSQL Database Schema Definition and Indexing
+- [x] 1.2.2 NoSQL Database Schema Definition and Indexing
 - [ ] 1.2.3 Database Service Deployment and Connection Test
 - [ ] 1.2.4 Initial Mock Data Loading (Resources)
 - [ ] 1.3.1 Job Board API Key Acquisition
