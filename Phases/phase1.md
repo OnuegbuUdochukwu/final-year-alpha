@@ -83,7 +83,7 @@ This phase is broken down into 12 granular, actionable tasks to establish the ne
 - [x] 1.2.1 SQL Database Schema DDL Implementation
 - [x] 1.2.2 NoSQL Database Schema Definition and Indexing
 - [x] 1.2.3 Database Service Deployment and Connection Test
-- [ ] 1.2.4 Initial Mock Data Loading (Resources)
+- [x] 1.2.4 Initial Mock Data Loading (Resources)
 - [ ] 1.3.1 Job Board API Key Acquisition
 - [ ] 1.3.2 Data Ingestion Script Development (Core Logic)
 - [ ] 1.3.3 MongoDB Ingestion and Validation
