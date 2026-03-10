@@ -8,13 +8,25 @@ from airflow.providers.standard.operators.bash import BashOperator
 project_root = "/Users/onuegbuudochukwu/Documents/400 Level/FYP/fyp_alpha"
 data_pipeline_dir = os.path.join(project_root, "data-pipeline")
 
+def on_failure_callback(context):
+    """
+    Standard Airflow callback for task failures.
+    In a true production environment, you might use SlackWebhookOperator here.
+    For local FYP development, we log the failure explicitly for monitoring.
+    """
+    task_instance = context.get('task_instance')
+    exception = context.get('exception')
+    print(f"ALARM: Task {task_instance.task_id} failed!")
+    print(f"Exception: {exception}")
+
 default_args = {
     'owner': 'udochukwu',
     'depends_on_past': False,
-    'email_on_failure': False, # To be updated in 2.3.2
+    'email_on_failure': False, # Can be enabled later if SMTP server is configured
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': on_failure_callback, # Monitor failures
 }
 
 with DAG(

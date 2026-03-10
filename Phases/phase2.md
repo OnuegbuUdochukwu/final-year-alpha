@@ -59,4 +59,4 @@ This phase focuses on turning raw text into structured data using Natural Langua
 - [x] 2.2.1 Keyword Frequency Analysis
 - [x] 2.2.2 TF-IDF Weight Calculation
 - [x] 2.3.1 Airflow DAG Construction
-- [ ] 2.3.2 Data Pipeline Monitoring
+- [x] 2.3.2 Data Pipeline Monitoring
