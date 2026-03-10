@@ -10,3 +10,4 @@ data-pipeline/*.json
 /airflow/airflow.cfg
 /airflow/airflow.db
 /airflow/logs/
+__pycache__/
