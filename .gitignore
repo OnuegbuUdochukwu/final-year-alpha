@@ -7,3 +7,6 @@ data-pipeline/*.json
 
 # Environment variables
 .env
+/airflow/airflow.cfg
+/airflow/airflow.db
+/airflow/logs/
