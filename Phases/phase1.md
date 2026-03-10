@@ -85,6 +85,6 @@ This phase is broken down into 12 granular, actionable tasks to establish the ne
 - [x] 1.2.3 Database Service Deployment and Connection Test
 - [x] 1.2.4 Initial Mock Data Loading (Resources)
 - [x] 1.3.1 Job Board API Key Acquisition (Skipped: Using Kaggle Dataset Strategy)
-- [ ] 1.3.2 Data Ingestion Script Development (Core Logic)
-- [ ] 1.3.3 MongoDB Ingestion and Validation
-- [ ] 1.3.4 Rate Limit and Error Handling Logic
+- [x] 1.3.2 Data Ingestion Script Development (Core Logic)
+- [x] 1.3.3 MongoDB Ingestion and Validation
+- [x] 1.3.4 Rate Limit and Error Handling Logic (Scaffolded)
