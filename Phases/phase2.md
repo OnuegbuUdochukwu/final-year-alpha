@@ -52,11 +52,11 @@ This phase focuses on turning raw text into structured data using Natural Langua
 
 ## Completion Checklist
 
-- [ ] 2.1.1 PDF/Docx Extraction Pipeline
-- [ ] 2.1.2 NER Model Selection & Setup
-- [ ] 2.1.3 Skill Mapping & Normalization
-- [ ] 2.1.4 Resume Vectorization API
-- [ ] 2.2.1 Keyword Frequency Analysis
-- [ ] 2.2.2 TF-IDF Weight Calculation
+- [x] 2.1.1 PDF/Docx Extraction Pipeline
+- [x] 2.1.2 NER Model Selection & Setup
+- [x] 2.1.3 Skill Mapping & Normalization
+- [x] 2.1.4 Resume Vectorization API
+- [x] 2.2.1 Keyword Frequency Analysis
+- [x] 2.2.2 TF-IDF Weight Calculation
 - [ ] 2.3.1 Airflow DAG Construction
 - [ ] 2.3.2 Data Pipeline Monitoring
