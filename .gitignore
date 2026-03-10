@@ -1,0 +1,6 @@
+
+# Ignore large datasets
+*.csv
+data-pipeline/*.csv
+*.json
+data-pipeline/*.json
