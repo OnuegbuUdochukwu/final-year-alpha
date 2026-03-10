@@ -4,3 +4,6 @@
 data-pipeline/*.csv
 *.json
 data-pipeline/*.json
+
+# Environment variables
+.env

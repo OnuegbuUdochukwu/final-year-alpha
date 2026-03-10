@@ -1,0 +1,17 @@
+
+--- MONGODB VALIDATION ---
+Total documents in RawJobDescriptions: 98
+
+Sample Document Structure:
+{'_id': ObjectId('69b02e81c87d2931b043d07c'),
+ 'company': 'Digital Intelligence Systems, LLC',
+ 'external_id': 'dice_6898739295344440944',
+ 'ingested_at': datetime.datetime(2026, 3, 10, 14, 43, 22, 534000),
+ 'job_title': 'AUTOMATION TEST ENGINEER',
+ 'location': {'city': 'Atlanta, GA', 'is_remote': False},
+ 'posted_at': datetime.datetime(2026, 3, 10, 14, 43, 22, 534000),
+ 'processing_status': 'pending',
+ 'raw_text': 'Looking for Selenium engineers...must have solid java coding '
+             'skills\xa0I have several openings some 3 month to hire some '
+             '6...must be able to go PERM\xa0\xa0Thi... [TRUNCATED]',
+ 'source': 'Dice (Kaggle)'}
