@@ -14,7 +14,7 @@ class Neo4jConfigurator:
         # We mapped neo4j to localhost:7687 in docker-compose
         self.uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.user = os.getenv("NEO4J_USER", "neo4j")
-        self.password = os.getenv("NEO4J_PASSWORD", "IloveAdeogomitide")
+        self.password = os.getenv("NEO4J_PASSWORD", "password")
         
         logger.info(f"Connecting to Neo4j at {self.uri}...")
         self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))

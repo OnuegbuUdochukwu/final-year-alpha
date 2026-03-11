@@ -15,7 +15,7 @@ class ResourceEdgeMapper:
         self.pg_url = os.getenv("SUPABASE_PG_URL")
         self.neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.neo4j_user = os.getenv("NEO4J_USER", "neo4j")
-        self.neo4j_password = os.getenv("NEO4J_PASSWORD", "IloveAdeogomitide")
+        self.neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
 
         if not self.pg_url:
             raise ValueError("SUPABASE_PG_URL missing from .env")
