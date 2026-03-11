@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import SkillRadar from './SkillRadar';
 
 interface ParsedSkill {
   name: string;
@@ -164,6 +165,8 @@ const ResumeUpload: React.FC = () => {
             </div>
           </div>
           
+          <SkillRadar skills={parsedSkills} />
+
           <div className="mt-8 flex justify-center">
              <button
               onClick={() => setParsedSkills(null)}
