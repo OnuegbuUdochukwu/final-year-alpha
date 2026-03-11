@@ -51,5 +51,5 @@ This phase builds the "brain" of the optimizer using graph theory.
 - [x] 3.2.1 Resource-to-Edge Mapping
 - [x] 3.2.2 Weight Normalization Service
 - [x] 3.3.1 BERT Embedding Generation
-- [ ] 3.3.2 A Algorithm Implementation*
+- [x] 3.3.2 A Algorithm Implementation*
 - [ ] 3.3.3 Pathfinder API Wrapper
