@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.23.0
+    container_name: fyp_neo4j
+    ports:
+      - "7474:7474" # HTTP Web Browser UI
+      - "7687:7687" # Bolt protocol for Python connection
+    environment:
+      # Disabling auth locally is bad practice, so we set a standard local dev password
+      - NEO4J_AUTH=neo4j/IloveAdeogomitide
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
