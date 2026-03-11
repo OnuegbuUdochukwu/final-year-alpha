@@ -42,7 +42,7 @@ This phase refines the path and provides market-driven insights.
 
 - [x] 4.1.1 Word2Vec Job Training
 - [x] 4.1.2 DBSCAN Cluster Analysis
-- [ ] 4.2.1 Content-Based Filter Logic
-- [ ] 4.2.2 Collaborative Filtering Mockup
+- [x] 4.2.1 Content-Based Filter Logic
+- [x] 4.2.2 Collaborative Filtering Mockup
 - [ ] 4.3.1 LP Problem Formulation
 - [ ] 4.3.2 Optimization API Integration
