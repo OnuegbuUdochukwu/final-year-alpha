@@ -11,3 +11,4 @@ data-pipeline/*.json
 /airflow/airflow.db
 /airflow/logs/
 __pycache__/
+*.log
