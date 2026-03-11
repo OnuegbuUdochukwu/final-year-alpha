@@ -43,6 +43,6 @@ This phase creates the user's interaction point with the system.
 - [x] 5.1.1 React/Tailwind Project Init
 - [x] 5.2.1 Resume Upload & Parsing UI
 - [x] 5.2.2 Skill Radar Visualization
-- [ ] 5.3.1 Target Selection & Constraints Form
+- [x] 5.3.1 Target Selection & Constraints Form
 - [ ] 5.3.2 Timeline Roadmap Component
 - [ ] 5.3.3 Predicted Resume View
