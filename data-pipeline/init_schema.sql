@@ -38,6 +38,7 @@ CREATE TABLE learning_resources (
 CREATE TABLE job_roles (
     role_id SERIAL PRIMARY KEY,
     role_name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
     cluster_id INTEGER,
     required_skills_json JSONB NOT NULL -- Idealized skill vector
 );
