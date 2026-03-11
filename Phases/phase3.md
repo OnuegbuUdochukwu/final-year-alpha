@@ -48,7 +48,7 @@ This phase builds the "brain" of the optimizer using graph theory.
 
 - [x] 3.1.1 Neo4j Schema & Constraints
 - [x] 3.1.2 SQL-to-Graph ETL
-- [ ] 3.2.1 Resource-to-Edge Mapping
+- [x] 3.2.1 Resource-to-Edge Mapping
 - [ ] 3.2.2 Weight Normalization Service
 - [ ] 3.3.1 BERT Embedding Generation
 - [ ] 3.3.2 A Algorithm Implementation*
