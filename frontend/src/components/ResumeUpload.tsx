@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import SkillRadar from './SkillRadar';
+import TargetSelectionForm from './TargetSelectionForm';
 
 interface ParsedSkill {
   name: string;
@@ -166,6 +167,8 @@ const ResumeUpload: React.FC = () => {
           </div>
           
           <SkillRadar skills={parsedSkills} />
+
+          <TargetSelectionForm onPathFound={(data) => console.log("Path Generated:", data)} />
 
           <div className="mt-8 flex justify-center">
              <button
