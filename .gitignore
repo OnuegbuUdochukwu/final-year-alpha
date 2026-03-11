@@ -13,3 +13,4 @@ data-pipeline/*.json
 __pycache__/
 *.log
 *.model
+.npm_cache/
