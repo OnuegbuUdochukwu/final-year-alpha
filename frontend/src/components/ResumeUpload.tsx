@@ -11,9 +11,10 @@ interface ParsedSkill {
 
 interface ResumeUploadProps {
   onPathFound: (pathData: any) => void;
+  onSkillsParsed: (skills: ParsedSkill[]) => void;
 }
 
-const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound }) => {
+const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [parsedSkills, setParsedSkills] = useState<ParsedSkill[] | null>(null);
@@ -48,13 +49,15 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound }) => {
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Mock successful response
-      setParsedSkills([
+      const skills = [
         { name: 'Python', confidence: 0.95 },
         { name: 'SQL', confidence: 0.88 },
         { name: 'Machine Learning', confidence: 0.76 },
         { name: 'Docker', confidence: 0.65 }
-      ]);
+      ];
+      // Mock successful response
+      setParsedSkills(skills);
+      onSkillsParsed(skills);
     } catch (err: any) {
       setError(err.message || 'Failed to parse resume. Please try again.');
     } finally {

@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import ResumeUpload from './components/ResumeUpload';
 import TimelineRoadmap from './components/TimelineRoadmap';
+import PredictedResume from './components/PredictedResume';
 import './App.css';
+
+interface ParsedSkill {
+  name: string;
+  confidence: number;
+}
 
 function App() {
   const [pathData, setPathData] = useState<any>(null);
+  const [parsedSkills, setParsedSkills] = useState<ParsedSkill[]>([]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
@@ -20,10 +27,15 @@ function App() {
         </div>
 
         {/* Main Components */}
-        <ResumeUpload onPathFound={setPathData} />
+        <ResumeUpload onPathFound={setPathData} onSkillsParsed={setParsedSkills} />
 
-        {/* Show Timeline when path is generated */}
-        {pathData && <TimelineRoadmap pathData={pathData} />}
+        {/* Timeline + Predicted Resume after path is generated */}
+        {pathData && (
+          <>
+            <TimelineRoadmap pathData={pathData} />
+            <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
+          </>
+        )}
       </div>
     </div>
   );
