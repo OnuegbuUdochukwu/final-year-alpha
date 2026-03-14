@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
+  # ─── Database ─────────────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5.23.0
     container_name: fyp_neo4j
     ports:
-      - "7474:7474" # HTTP Web Browser UI
-      - "7687:7687" # Bolt protocol for Python connection
+      - "7474:7474"   # HTTP Web Browser UI
+      - "7687:7687"   # Bolt protocol for Python connection
     environment:
-      # Disabling auth locally is bad practice, so we set a standard local dev password
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
       - NEO4J_apoc_export_file_enabled=true
       - NEO4J_apoc_import_file_enabled=true
@@ -17,6 +17,66 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── NLP Service ──────────────────────────────────────────────────────────
+  nlp-service:
+    build:
+      context: ./nlp-service
+      dockerfile: Dockerfile
+    container_name: fyp_nlp
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── Graph / Pathfinder Service ───────────────────────────────────────────
+  graph-service:
+    build:
+      context: ./graph-service
+      dockerfile: Dockerfile
+    container_name: fyp_graph
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    image: node:20-slim
+    container_name: fyp_frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_NLP_API=http://localhost:8000
+      - VITE_GRAPH_API=http://localhost:8001
+    depends_on:
+      - nlp-service
+      - graph-service
 
 volumes:
   neo4j_data:

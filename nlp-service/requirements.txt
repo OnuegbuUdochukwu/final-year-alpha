@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+transformers
+torch
+pdfminer.six
+python-docx
+python-dotenv
