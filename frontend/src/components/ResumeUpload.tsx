@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, FileText, CheckCircle, Loader2 } from 'lucide-react';
-import axios from 'axios';
 import SkillRadar from './SkillRadar';
 import TargetSelectionForm from './TargetSelectionForm';
 
@@ -10,7 +9,11 @@ interface ParsedSkill {
   confidence: number;
 }
 
-const ResumeUpload: React.FC = () => {
+interface ResumeUploadProps {
+  onPathFound: (pathData: any) => void;
+}
+
+const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [parsedSkills, setParsedSkills] = useState<ParsedSkill[] | null>(null);
@@ -168,7 +171,7 @@ const ResumeUpload: React.FC = () => {
           
           <SkillRadar skills={parsedSkills} />
 
-          <TargetSelectionForm onPathFound={(data) => console.log("Path Generated:", data)} />
+          <TargetSelectionForm onPathFound={onPathFound} />
 
           <div className="mt-8 flex justify-center">
              <button

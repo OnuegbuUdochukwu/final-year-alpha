@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import ResumeUpload from './components/ResumeUpload';
+import TimelineRoadmap from './components/TimelineRoadmap';
 import './App.css';
 
 function App() {
+  const [pathData, setPathData] = useState<any>(null);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full flex-1 flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
@@ -15,8 +19,11 @@ function App() {
           </p>
         </div>
 
-        {/* Main Component */}
-        <ResumeUpload />
+        {/* Main Components */}
+        <ResumeUpload onPathFound={setPathData} />
+
+        {/* Show Timeline when path is generated */}
+        {pathData && <TimelineRoadmap pathData={pathData} />}
       </div>
     </div>
   );
