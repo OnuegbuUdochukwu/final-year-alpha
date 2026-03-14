@@ -5,6 +5,10 @@ from typing import List, Dict, Optional
 import uvicorn
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
+import os
+import psycopg2
+from dotenv import load_dotenv
+load_dotenv()
 
 # Import our custom mathematical engine
 from pathfinder import PathfinderGraphEngine
@@ -132,6 +136,51 @@ async def get_optimal_path(
     except Exception as e:
         logger.error(f"Engine computation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal algorithmic error during path calculation.")
+
+
+# ─── Completion Webhook ──────────────────────────────────────────────────────
+class CompleteStepRequest(BaseModel):
+    user_id: str
+    skill_name: str
+
+@app.post("/complete-step")
+async def complete_step(body: CompleteStepRequest):
+    """
+    Webhook that marks a learning milestone as complete.
+    Upserts a record into the `user_skills` PostgreSQL table so the
+    backend knows the user's skill vector has grown.
+    """
+    pg_url = os.getenv("SUPABASE_PG_URL", "")
+    if not pg_url:
+        raise HTTPException(status_code=503, detail="Database not configured.")
+
+    try:
+        conn = psycopg2.connect(pg_url)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_skills (
+                id          SERIAL PRIMARY KEY,
+                user_id     TEXT NOT NULL,
+                skill_name  TEXT NOT NULL,
+                completed_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, skill_name)
+            );
+        """)
+        cur.execute("""
+            INSERT INTO user_skills (user_id, skill_name)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id, skill_name) DO UPDATE
+                SET completed_at = NOW();
+        """, (body.user_id, body.skill_name))
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"Skill '{body.skill_name}' marked complete for user '{body.user_id}'.")
+        return {"status": "ok", "user_id": body.user_id, "skill_completed": body.skill_name}
+    except Exception as e:
+        logger.error(f"Webhook DB error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to record skill completion.")
+
 
 if __name__ == "__main__":
     uvicorn.run("api:app", host="0.0.0.0", port=8001, reload=True)

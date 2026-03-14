@@ -6,3 +6,4 @@ scipy
 numpy
 python-dotenv
 prometheus_fastapi_instrumentator
+psycopg2-binary
