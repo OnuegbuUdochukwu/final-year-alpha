@@ -1,0 +1,79 @@
+name: CI – Build & Lint
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ─── NLP Service ─────────────────────────────────────────────────────────
+  nlp-service-lint:
+    name: NLP Service – Python Import Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nlp-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir fastapi uvicorn transformers torch pdfminer.six python-docx python-dotenv
+
+      - name: Verify imports (smoke test)
+        run: python -c "import fastapi, uvicorn, transformers; print('NLP deps OK')"
+
+  # ─── Graph Service ───────────────────────────────────────────────────────
+  graph-service-lint:
+    name: Graph Service – Python Import Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: graph-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir fastapi uvicorn neo4j networkx scipy numpy python-dotenv pulp scikit-learn sentence-transformers
+
+      - name: Verify imports (smoke test)
+        run: python -c "import fastapi, uvicorn, networkx, scipy, numpy; print('Graph deps OK')"
+
+  # ─── Frontend ────────────────────────────────────────────────────────────
+  frontend-build:
+    name: Frontend – Build Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: Build production bundle
+        run: npm run build
