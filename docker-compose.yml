@@ -78,6 +78,24 @@ services:
       - nlp-service
       - graph-service
 
+  # ─── API Gateway (JWT Auth) ───────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: fyp_gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - NLP_SERVICE_URL=http://nlp-service:8000
+      - GRAPH_SERVICE_URL=http://graph-service:8001
+    depends_on:
+      - nlp-service
+      - graph-service
+    restart: unless-stopped
+
 volumes:
   neo4j_data:
   neo4j_logs:
