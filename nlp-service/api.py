@@ -1,6 +1,7 @@
 import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from extractor import DocumentExtractor
 from ner_model import NERModelManager
@@ -25,6 +26,9 @@ async def lifespan(app: FastAPI):
 
 # Create the FastAPI app instance
 app = FastAPI(title="NLP Service API", version="1.0.0", lifespan=lifespan)
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/health")
 def health_check():

@@ -5,3 +5,4 @@ networkx
 scipy
 numpy
 python-dotenv
+prometheus_fastapi_instrumentator

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 
@@ -41,6 +42,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):

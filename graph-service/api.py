@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import uvicorn
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Import our custom mathematical engine
 from pathfinder import PathfinderGraphEngine
@@ -46,6 +47,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
 
 # --- Response Models ---
 class Step(BaseModel):
