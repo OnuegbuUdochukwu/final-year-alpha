@@ -121,14 +121,41 @@ async def proxy_find_path(request: Request, _user=Depends(verify_token)):
     return JSONResponse(status_code=resp.status_code, content=resp.json())
 
 @app.post("/api/complete-step")
-async def proxy_complete_step(request: Request, _user=Depends(verify_token)):
-    """Proxy: POST /api/complete-step → graph-service:8001/complete-step"""
+async def proxy_complete_step(request: Request, user=Depends(verify_token)):
+    """
+    Proxy: POST /api/complete-step → graph-service:8001/complete-step
+
+    Phase 6.3.2 enhancement: the user_id is injected from the verified JWT
+    payload (the `sub` claim) so the client never has to supply it manually.
+    The request body only needs to contain `skill_name`.
+    """
     body = await request.json()
+
+    # Override/inject user_id from the JWT — prevents clients from
+    # updating other users' skill vectors.
+    body["user_id"] = user.get("sub", body.get("user_id", "anonymous"))
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(
             f"{GRAPH_SERVICE_URL}/complete-step",
             json=body
         )
+    return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+@app.get("/api/current-skills/{user_id}")
+async def proxy_current_skills(user_id: str, request: Request, user=Depends(verify_token)):
+    """
+    Proxy: GET /api/current-skills/{user_id} → graph-service:8001/skills/{user_id}
+
+    Returns the list of skills already marked complete for a given user.
+    Only the user themselves (JWT sub == user_id) or admin can query this.
+    """
+    jwt_user = user.get("sub", "")
+    if jwt_user != user_id and jwt_user != "admin":
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(f"{GRAPH_SERVICE_URL}/skills/{user_id}")
     return JSONResponse(status_code=resp.status_code, content=resp.json())
 
 if __name__ == "__main__":

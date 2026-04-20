@@ -72,8 +72,9 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_NLP_API=http://localhost:8000
-      - VITE_GRAPH_API=http://localhost:8001
+      # All frontend API traffic goes through the JWT-secured gateway.
+      # Inside Docker: use the container name as the host.
+      - VITE_GATEWAY_URL=http://localhost:8080
     depends_on:
       - nlp-service
       - graph-service
