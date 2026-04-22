@@ -1,72 +1,159 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  /* Typography from YAML Spec */
+  --text-display-xl: 60px;
+  --text-display-lg: 48px;
+  --text-h1: 36px;
+  --text-h2: 30px;
+  --text-h3: 24px;
+  --text-body-lg: 18px;
+  --text-body-md: 16px;
+  --text-body-sm: 14px;
+  --text-label-md: 14px;
+  --text-label-sm: 12px;
+
+  /* Spacing from YAML Spec */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  --spacing-3xl: 64px;
+
+  /* Border Radius from Spec */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 12px;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  --radius-base: 8px;
+  --radius-pill: 100px;
+  
+  /* Semantic Colors from Markdown Text */
+  --color-brand-primary: #7F56D9;
+  --color-brand-hover: #6941C6;
+  --color-brand-subtle: rgba(127, 86, 217, 0.1);
+  --color-brand-ghost: rgba(127, 86, 217, 0.1);
+
+  --color-dark-bg: #101828;
+  --color-dark-elevated: #1D2939;
+  --color-dark-border: #344054;
+  --color-dark-glass: rgba(16, 24, 40, 0.8);
+
+  --color-light-bg: #FFFFFF;
+  --color-light-elevated: #F9FAFB;
+  --color-light-border: #EAECF0;
+  --color-light-glass: rgba(255, 255, 255, 0.8);
+
+  /* Semantic Variables (light-dark) */
+  --color-bg-primary: light-dark(var(--color-light-bg), var(--color-dark-bg));
+  --color-bg-elevated: light-dark(var(--color-light-elevated), var(--color-dark-elevated));
+  --color-border-subtle: light-dark(var(--color-light-border), var(--color-dark-border));
+  --color-glass-bg: light-dark(var(--color-light-glass), var(--color-dark-glass));
+  --color-text-primary: light-dark(#101828, #F2F4F7);
+  --color-text-secondary: light-dark(#475467, #98A2B3);
+
+  /* YAML Theme Overrides if needed */
+  --color-surface: #141218;
+  --color-primary: #cfbcff;
+}
+
 @layer base {
   :root {
-    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
-
     color-scheme: light dark;
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
-
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
+  }
+  
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    margin: 0;
+    min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  a {
-    font-weight: 500;
-    color: #646cff;
-    text-decoration: inherit;
-  }
-  a:hover {
-    color: #535bf2;
+  /* High-contrast typography with tight tracking for headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
   }
 
-  body {
-    margin: 0;
-    display: flex;
-    place-items: center;
-    min-width: 320px;
-    min-height: 100vh;
+  /* Focus globally */
+  *:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-display-xl {
+    font-size: var(--text-display-xl);
+    line-height: 72px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-display-lg {
+    font-size: var(--text-display-lg);
+    line-height: 60px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-h1 {
+    font-size: var(--text-h1);
+    line-height: 44px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-h2 {
+    font-size: var(--text-h2);
+    line-height: 38px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-h3 {
+    font-size: var(--text-h3);
+    line-height: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-body-lg {
+    font-size: var(--text-body-lg);
+    line-height: 28px;
+    font-weight: 400;
+  }
+  .text-body-md {
+    font-size: var(--text-body-md);
+    line-height: 24px;
+    font-weight: 400;
+  }
+  .text-body-sm {
+    font-size: var(--text-body-sm);
+    line-height: 20px;
+    font-weight: 400;
+  }
+  .text-label-md {
+    font-size: var(--text-label-md);
+    line-height: 20px;
+    font-weight: 600;
+  }
+  .text-label-sm {
+    font-size: var(--text-label-sm);
+    line-height: 18px;
+    font-weight: 600;
+  }
+  
+  /* Large, soft ambient shadow with 15% opacity */
+  .shadow-ambient {
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
   }
 
-  h1 {
-    font-size: 3.2em;
-    line-height: 1.1;
-  }
-
-  button {
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background-color: #1a1a1a;
-    cursor: pointer;
-    transition: border-color 0.25s;
-  }
-  button:hover {
-    border-color: #646cff;
-  }
-  button:focus,
-  button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root {
-      color: #213547;
-      background-color: #ffffff;
-    }
-    a:hover {
-      color: #747bff;
-    }
-    button {
-      background-color: #f9f9f9;
-    }
+  .focus-ring-brand {
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-primary;
   }
 }

@@ -19,6 +19,7 @@ import LoginModal from './components/LoginModal';
 import ResumeUpload from './components/ResumeUpload';
 import TimelineRoadmap from './components/TimelineRoadmap';
 import PredictedResume from './components/PredictedResume';
+import { GlassNav } from './components/ui/GlassNav';
 import client from './api/client';
 import './App.css';
 
@@ -96,49 +97,57 @@ function App() {
       {/* ── Auth gate ─────────────────────────────────────────────────────── */}
       {!token && <LoginModal />}
 
+      <GlassNav>
+        <div className="flex items-center justify-between h-16">
+          <div className="font-bold text-xl tracking-tight text-[var(--color-brand-primary)]">
+            AfterClass
+          </div>
+          {token && (
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] hover:text-red-500 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded px-2 py-1"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign out {userId ? `(${userId})` : ''}
+            </button>
+          )}
+        </div>
+      </GlassNav>
+
       {/* ── App shell ─────────────────────────────────────────────────────── */}
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-2xl">
+      <div className="flex flex-col items-center py-[var(--spacing-xxl)] px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-[1280px] grid grid-cols-1 md:grid-cols-12 gap-[var(--spacing-xl)]">
 
           {/* ── Header ── */}
-          <div className="text-center mb-12 relative">
-            {/* Logout button (top-right when logged in) */}
-            {token && (
-              <button
-                onClick={logout}
-                className="absolute right-0 top-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Sign out {userId ? `(${userId})` : ''}
-              </button>
-            )}
-
-            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+          <div className="col-span-1 md:col-span-12 text-center mb-[var(--spacing-xl)] relative">
+            <h1 className="text-display-lg text-[var(--color-text-primary)] mb-4">
               AI Career Pathfinder
             </h1>
-            <p className="max-w-xl mx-auto text-lg text-gray-500 dark:text-gray-400">
+            <p className="max-w-xl mx-auto text-body-lg text-[var(--color-text-secondary)]">
               Upload your resume → discover skill gaps → generate a personalized learning roadmap → mark milestones complete for a live updated path.
             </p>
           </div>
 
-          {/* ── Main flow ── */}
-          <ResumeUpload
-            onPathFound={handlePathFound}
-            onSkillsParsed={handleSkillsParsed}
-            topSkill={currentStart !== 'Foundation' ? currentStart : null}
-          />
+          <div className="col-span-1 md:col-start-3 md:col-span-8 flex flex-col gap-[var(--spacing-xxl)]">
+            {/* ── Main flow ── */}
+            <ResumeUpload
+              onPathFound={handlePathFound}
+              onSkillsParsed={handleSkillsParsed}
+              topSkill={currentStart !== 'Foundation' ? currentStart : null}
+            />
 
-          {/* Timeline + Predicted Resume appear after a path is generated */}
-          {pathData && (
-            <>
-              <TimelineRoadmap
-                pathData={pathData}
-                onStepCompleted={handleStepCompleted}
-                isRecalculating={isRecalculating}
-              />
-              <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
-            </>
-          )}
+            {/* Timeline + Predicted Resume appear after a path is generated */}
+            {pathData && (
+              <>
+                <TimelineRoadmap
+                  pathData={pathData}
+                  onStepCompleted={handleStepCompleted}
+                  isRecalculating={isRecalculating}
+                />
+                <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </>
