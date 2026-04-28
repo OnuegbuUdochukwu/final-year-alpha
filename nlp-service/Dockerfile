@@ -13,7 +13,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download the NLP model at build time to avoid cold-start delays
-RUN python -c "from transformers import pipeline; pipeline('ner', model='distilbert-base-uncased')" || true
+RUN python -c "from transformers import pipeline; pipeline('ner', model='prajjwal1/bert-tiny')" || true
+
 
 # Copy source code
 COPY . .

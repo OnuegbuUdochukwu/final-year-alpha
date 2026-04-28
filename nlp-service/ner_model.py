@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class NERModelManager:
     """Manages the loading and execution of the NER Transformer model."""
     
-    def __init__(self, model_name: str = "distilbert-base-uncased"):
+    def __init__(self, model_name: str = "prajjwal1/bert-tiny"):
         self.model_name = model_name
         self.tokenizer = None
         self.model = None

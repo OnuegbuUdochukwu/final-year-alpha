@@ -6,3 +6,5 @@ pdfminer.six
 python-docx
 python-dotenv
 prometheus_fastapi_instrumentator
+fuzzywuzzy
+python-Levenshtein
