@@ -12,9 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install pulse/sentence-transformers for BERT embeddings
-RUN pip install --no-cache-dir sentence-transformers pulp scikit-learn
-
 # Copy source code
 COPY . .
 

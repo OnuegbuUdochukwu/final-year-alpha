@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 neo4j
@@ -7,3 +8,6 @@ numpy
 python-dotenv
 prometheus_fastapi_instrumentator
 psycopg2-binary
+sentence-transformers
+pulp
+scikit-learn
