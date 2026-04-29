@@ -41,10 +41,7 @@ services:
       - key: GRAPH_SERVICE_URL
         value: http://fyp-graph:8001
       - key: ALLOWED_ORIGINS
-        fromService:
-          type: web
-          name: fyp-frontend
-          property: url
+        value: https://fyp-frontend.onrender.com
       - fromGroup: fyp-shared-secrets
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
@@ -59,16 +56,18 @@ services:
       - key: PORT
         value: 80
       - key: VITE_GATEWAY_URL
-        fromService:
-          type: web
-          name: fyp-gateway
-          property: url
+        value: https://fyp-gateway.onrender.com
 
 envVarGroups:
   - name: fyp-shared-secrets
     envVars:
       - key: JWT_SECRET
+        generate: true
       - key: NEO4J_URI
+        value: "bolt://localhost:7687"
       - key: NEO4J_USER
+        value: "neo4j"
       - key: NEO4J_PASSWORD
+        value: "password"
       - key: SUPABASE_PG_URL
+        value: ""
