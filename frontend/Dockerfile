@@ -7,10 +7,10 @@ WORKDIR /app
 ARG VITE_GATEWAY_URL
 ENV VITE_GATEWAY_URL=$VITE_GATEWAY_URL
 
-COPY package*.json ./
+COPY frontend/package*.json ./
 RUN npm install
 
-COPY . .
+COPY frontend/ .
 RUN npm run build
 
 # ─── Stage 2: Serve ──────────────────────────────────────────────────────────
