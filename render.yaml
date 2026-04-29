@@ -6,6 +6,7 @@ services:
     rootDir: nlp-service
     dockerfilePath: Dockerfile
     dockerContext: .
+    plan: free
     envVars:
       - key: PORT
         value: 8000
@@ -17,6 +18,7 @@ services:
     rootDir: graph-service
     dockerfilePath: Dockerfile
     dockerContext: .
+    plan: free
     envVars:
       - key: PORT
         value: 8001
@@ -28,6 +30,7 @@ services:
     rootDir: api-gateway
     dockerfilePath: Dockerfile
     dockerContext: .
+    plan: free
     envVars:
       - key: PORT
         value: 8080
@@ -45,6 +48,7 @@ services:
     rootDir: frontend
     dockerfilePath: Dockerfile
     dockerContext: .
+    plan: free
     envVars:
       - key: PORT
         value: 80
