@@ -45,8 +45,7 @@ services:
   - type: web
     name: fyp-frontend
     runtime: docker
-    rootDir: frontend
-    dockerfilePath: Dockerfile
+    dockerfilePath: frontend/Dockerfile
     dockerContext: .
     plan: free
     envVars:
