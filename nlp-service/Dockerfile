@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies
-COPY requirements.txt .
+COPY nlp-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download the NLP model at build time to avoid cold-start delays
@@ -17,7 +17,7 @@ RUN python -c "from transformers import pipeline; pipeline('ner', model='prajjwa
 
 
 # Copy source code
-COPY . .
+COPY nlp-service/ .
 
 EXPOSE 8000
 
