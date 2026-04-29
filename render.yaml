@@ -2,8 +2,9 @@ services:
   - type: web
     name: fyp-nlp
     runtime: docker
-    dockerContext: ./nlp-service
-    dockerfilePath: ./nlp-service/Dockerfile
+    rootDir: nlp-service
+    dockerfilePath: Dockerfile
+    dockerContext: .
     envVars:
       - key: PORT
         value: 8000
@@ -12,8 +13,9 @@ services:
   - type: web
     name: fyp-graph
     runtime: docker
-    dockerContext: ./graph-service
-    dockerfilePath: ./graph-service/Dockerfile
+    rootDir: graph-service
+    dockerfilePath: Dockerfile
+    dockerContext: .
     envVars:
       - key: PORT
         value: 8001
@@ -22,8 +24,9 @@ services:
   - type: web
     name: fyp-gateway
     runtime: docker
-    dockerContext: ./api-gateway
-    dockerfilePath: ./api-gateway/Dockerfile
+    rootDir: api-gateway
+    dockerfilePath: Dockerfile
+    dockerContext: .
     envVars:
       - key: PORT
         value: 8080
@@ -38,8 +41,9 @@ services:
   - type: web
     name: fyp-frontend
     runtime: docker
-    dockerContext: ./frontend
-    dockerfilePath: ./frontend/Dockerfile
+    rootDir: frontend
+    dockerfilePath: Dockerfile
+    dockerContext: .
     envVars:
       - key: PORT
         value: 80
