@@ -41,16 +41,24 @@ services:
       - key: GRAPH_SERVICE_URL
         value: http://fyp-graph:8001
       - key: ALLOWED_ORIGINS
-        value: "*" # Initially allow all, update to frontend URL after deploy
+        fromService:
+          type: web
+          name: fyp-frontend
+          property: url
       - fromGroup: fyp-shared-secrets
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
-  - type: static_site
+  - type: web
     name: fyp-frontend
-    runtime: node
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/dist
+    runtime: docker
+    dockerContext: ./frontend
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
     envVars:
+      - key: PORT
+        value: 80
+    dockerBuildArgs:
       - key: VITE_GATEWAY_URL
         fromService:
           type: web
