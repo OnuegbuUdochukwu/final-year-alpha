@@ -45,7 +45,7 @@ services:
       - fromGroup: fyp-shared-secrets
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
-  - type: static
+  - type: static_site
     name: fyp-frontend
     runtime: node
     buildCommand: cd frontend && npm install && npm run build
