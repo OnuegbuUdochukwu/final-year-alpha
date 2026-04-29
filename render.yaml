@@ -58,7 +58,6 @@ services:
     envVars:
       - key: PORT
         value: 80
-    dockerBuildArgs:
       - key: VITE_GATEWAY_URL
         fromService:
           type: web
