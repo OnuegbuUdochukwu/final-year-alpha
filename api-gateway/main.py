@@ -35,9 +35,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ─── CORS ────────────────────────────────────────────────────────────────────
+# On Render, the frontend URL will change. We use an environment variable
+# ALLOWED_ORIGINS (comma-separated) to handle this.
+raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+origins = [o.strip() for o in raw_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
