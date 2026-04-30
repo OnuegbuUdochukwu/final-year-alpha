@@ -12,8 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Initialize our components (but don't load the heavy ML model until app startup)
-# Using bert-tiny instead of distilbert to prevent OOM kills on Render's 512MB free tier
-ner_manager = NERModelManager("prajjwal1/bert-tiny")
+# Using dslim/bert-base-NER for out-of-the-box NER extraction
+ner_manager = NERModelManager("dslim/bert-base-NER")
 normalizer = SkillNormalizer()
 
 @asynccontextmanager
@@ -67,19 +67,16 @@ async def parse_resume(file: UploadFile = File(...)):
     # 2. Entity Recognition
     try:
         # Run the text through the Hugging Face pipeline
-        # Note: A real NER model will return entities like [{'word': 'python', 'entity_group': 'SKILL'}]
-        # Since we're using a generic model or feature-extraction backbone temporarily for scaffold:
         entities_data = ner_manager.extract_entities(raw_text)
         
-        # In a real NER implementation, we would map the 'word' fields from the grouped entities.
-        # But for this scaffold with distilbert-base, let's mock the 'extracted strings' based on
-        # a basic regex or just pushing the whole text to the normalizer to simulate it pulling words.
-        # Actually, let's just do a highly simplified keyword hunt to simulate the NER behavior
-        # so you get actual JSON data back during testing without a fine-tuned model.
-        
-        # Simulate extracted words (a real NER returns precise strings)
-        words = raw_text.split()
-        simulated_entities = [word.strip(".,();:") for word in words if len(word) > 1]
+        simulated_entities = []
+        if isinstance(entities_data, list) and len(entities_data) > 0 and isinstance(entities_data[0], dict) and 'word' in entities_data[0]:
+            # Extracted actual entities from a fine-tuned NER model
+            simulated_entities = [ent['word'] for ent in entities_data]
+        else:
+            # Fallback to simulated keyword hunt
+            words = raw_text.split()
+            simulated_entities = [word.strip(".,();:") for word in words if len(word) > 1]
     except Exception as e:
         logger.error(f"NER Extraction failed: {e}")
         raise HTTPException(status_code=500, detail="NLP modeling failed.")

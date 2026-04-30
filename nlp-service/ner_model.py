@@ -19,7 +19,7 @@ class NERModelManager:
     def load_model(self):
         """Downloads (if necessary) and loads the model into memory."""
         logger.info(f"Loading tokenizer for {self.model_name}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=False)
         
         logger.info(f"Loading model for {self.model_name}...")
         # Note: distilbert-base-uncased doesn't have pre-trained NER weights,
