@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download the NLP model at build time to avoid cold-start delays
-RUN python -c "from transformers import pipeline; pipeline('ner', model='prajjwal1/bert-tiny')" || true
+RUN python -c "from transformers import pipeline, BertTokenizerFast; BertTokenizerFast.from_pretrained('bert-base-chinese'); pipeline('ner', model='ckiplab/albert-tiny-chinese-ner')" || true
 
 
 # Copy source code
@@ -23,4 +23,4 @@ EXPOSE 8000
 
 # Use environment variable for port (Render compatibility)
 ENV PORT=8000
-CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker api:app --bind 0.0.0.0:$PORT --timeout 120"]
