@@ -24,8 +24,14 @@ const LoginModal: React.FC = () => {
     try {
       await login(username, password);
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(detail || 'Invalid username or password.');
+      if (err.response) {
+        const detail = err.response?.data?.detail;
+        setError(detail || 'Invalid username or password.');
+      } else if (err.request) {
+        setError('Network error: Could not reach the API. This is likely a CORS issue or incorrect VITE_GATEWAY_URL.');
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
