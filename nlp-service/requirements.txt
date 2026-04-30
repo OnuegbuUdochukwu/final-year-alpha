@@ -10,3 +10,5 @@ prometheus_fastapi_instrumentator
 fuzzywuzzy
 python-Levenshtein
 python-multipart
+sentencepiece
+protobuf
