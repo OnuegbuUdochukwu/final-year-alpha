@@ -12,7 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Initialize our components (but don't load the heavy ML model until app startup)
-ner_manager = NERModelManager("distilbert-base-uncased")
+# Using bert-tiny instead of distilbert to prevent OOM kills on Render's 512MB free tier
+ner_manager = NERModelManager("prajjwal1/bert-tiny")
 normalizer = SkillNormalizer()
 
 @asynccontextmanager
