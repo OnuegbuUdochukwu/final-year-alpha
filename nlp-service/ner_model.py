@@ -1,7 +1,7 @@
 import os
 import logging
 import torch
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+from transformers import BertTokenizerFast, AutoModelForTokenClassification, pipeline
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -19,7 +19,7 @@ class NERModelManager:
     def load_model(self):
         """Downloads (if necessary) and loads the model into memory."""
         logger.info(f"Loading tokenizer for {self.model_name}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=False)
+        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-chinese')
         
         logger.info(f"Loading model for {self.model_name}...")
         # Note: distilbert-base-uncased doesn't have pre-trained NER weights,
