@@ -12,8 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Initialize our components (but don't load the heavy ML model until app startup)
-# Using dslim/bert-base-NER for out-of-the-box NER extraction
-ner_manager = NERModelManager("dslim/bert-base-NER")
+# Using mrm8488/bert-tiny-finetuned-ner for lightweight out-of-the-box NER extraction
+ner_manager = NERModelManager("mrm8488/bert-tiny-finetuned-ner")
 normalizer = SkillNormalizer()
 
 @asynccontextmanager
