@@ -108,13 +108,20 @@ async def proxy_parse_resume(request: Request, _user=Depends(verify_token)):
     """Proxy: POST /api/parse-resume → nlp-service:8000/parse-resume"""
     body = await request.body()
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(
-            f"{NLP_SERVICE_URL}/parse-resume",
-            content=body,
-            headers=headers
-        )
-    return JSONResponse(status_code=resp.status_code, content=resp.json())
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{NLP_SERVICE_URL}/parse-resume",
+                content=body,
+                headers=headers
+            )
+        try:
+            resp_data = resp.json()
+        except ValueError:
+            resp_data = {"detail": f"NLP Service returned non-JSON: {resp.text[:100]}"}
+        return JSONResponse(status_code=resp.status_code, content=resp_data)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach NLP Service. {str(e)}")
 
 @app.get("/api/find-path")
 async def proxy_find_path(request: Request, _user=Depends(verify_token)):
