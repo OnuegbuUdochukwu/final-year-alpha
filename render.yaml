@@ -1,6 +1,6 @@
 # Render Blueprint Configuration
 services:
-  - type: web
+  - type: pserv
     name: fyp-nlp
     runtime: docker
     rootDir: nlp-service
@@ -12,7 +12,7 @@ services:
         value: 8000
       - fromGroup: fyp-shared-secrets
 
-  - type: web
+  - type: pserv
     name: fyp-graph
     runtime: docker
     rootDir: graph-service
@@ -60,10 +60,10 @@ envVarGroups:
       - key: JWT_SECRET
         generateValue: true
       - key: NEO4J_URI
-        value: bolt://localhost:7687
+        sync: false
       - key: NEO4J_USER
-        value: neo4j
+        sync: false
       - key: NEO4J_PASSWORD
-        value: password
+        sync: false
       - key: SUPABASE_PG_URL
         value: ""
