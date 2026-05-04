@@ -20,8 +20,11 @@ JWT_SECRET = os.getenv("JWT_SECRET", "changeme-supersecret-key")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_SECONDS = 3600  # 1 hour
 
-NLP_SERVICE_URL = os.getenv("NLP_SERVICE_URL", "http://localhost:8000")
-GRAPH_SERVICE_URL = os.getenv("GRAPH_SERVICE_URL", "http://localhost:8001")
+_raw_nlp = os.getenv("NLP_SERVICE_URL", "http://localhost:8000")
+NLP_SERVICE_URL = f"http://{_raw_nlp}" if not _raw_nlp.startswith("http") else _raw_nlp
+
+_raw_graph = os.getenv("GRAPH_SERVICE_URL", "http://localhost:8001")
+GRAPH_SERVICE_URL = f"http://{_raw_graph}" if not _raw_graph.startswith("http") else _raw_graph
 
 # Demo credentials (replace with DB lookup in production)
 DEMO_USERS = {

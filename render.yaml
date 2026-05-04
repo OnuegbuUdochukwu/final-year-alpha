@@ -35,9 +35,15 @@ services:
       - key: PORT
         value: 8080
       - key: NLP_SERVICE_URL
-        value: http://fyp-nlp:8000
+        fromService:
+          name: fyp-nlp
+          type: pserv
+          property: hostport
       - key: GRAPH_SERVICE_URL
-        value: http://fyp-graph:8001
+        fromService:
+          name: fyp-graph
+          type: pserv
+          property: hostport
       - key: ALLOWED_ORIGINS
         value: http://localhost:5173,https://fyp-frontend.onrender.com,https://fyp-frontend-it80.onrender.com
       - fromGroup: fyp-shared-secrets
