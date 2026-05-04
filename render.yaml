@@ -66,4 +66,4 @@ envVarGroups:
       - key: NEO4J_PASSWORD
         sync: false
       - key: SUPABASE_PG_URL
-        value: ""
+        sync: false
