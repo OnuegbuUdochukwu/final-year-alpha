@@ -39,7 +39,7 @@ services:
       - key: GRAPH_SERVICE_URL
         value: http://fyp-graph:8001
       - key: ALLOWED_ORIGINS
-        value: https://fyp-frontend.onrender.com
+        value: http://localhost:5173,https://fyp-frontend.onrender.com,https://fyp-frontend-it80.onrender.com
       - fromGroup: fyp-shared-secrets
 
   - type: web
