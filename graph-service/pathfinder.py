@@ -15,8 +15,9 @@ class PathfinderGraphEngine:
     def __init__(self):
         load_dotenv()
         self.neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+        self.neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
         self.neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+        self.neo4j_database = os.getenv("NEO4J_DATABASE", "neo4j")
         
         self.neo_driver = GraphDatabase.driver(self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password))
         self.G = nx.DiGraph()
@@ -28,7 +29,8 @@ class PathfinderGraphEngine:
         """Loads the Neo4j structure into memory for fast A* computation."""
         logger.info("Building NetworkX graph from Neo4j...")
         
-        with self.neo_driver.session() as session:
+        # In Neo4j 4.x and Aura, specifying the database is sometimes required
+        with self.neo_driver.session(database=self.neo4j_database) as session:
             # Load Nodes and their Embeddings
             nodes_result = session.run("MATCH (n:Skill) RETURN elementId(n) as id, n.name as name, n.embedding as embedding")
             for record in nodes_result:

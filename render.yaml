@@ -67,9 +67,11 @@ envVarGroups:
         generateValue: true
       - key: NEO4J_URI
         sync: false
-      - key: NEO4J_USER
+      - key: NEO4J_USERNAME
         sync: false
       - key: NEO4J_PASSWORD
+        sync: false
+      - key: NEO4J_DATABASE
         sync: false
       - key: SUPABASE_PG_URL
         sync: false
