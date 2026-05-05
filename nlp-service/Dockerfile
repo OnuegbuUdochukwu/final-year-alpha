@@ -2,19 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps for transformers and PDF parsing
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy and install Python dependencies
+# Copy and install Python dependencies (lightweight – no ML libs)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Download the NLP model at build time to avoid cold-start delays
-RUN python -c "from transformers import pipeline, BertTokenizerFast; BertTokenizerFast.from_pretrained('bert-base-chinese'); pipeline('ner', model='ckiplab/albert-tiny-chinese-ner')" || true
-
 
 # Copy source code
 COPY . .

@@ -1,8 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
-transformers
-torch
+requests
 pdfminer.six
 python-docx
 python-dotenv
@@ -10,6 +8,4 @@ prometheus_fastapi_instrumentator
 fuzzywuzzy
 python-Levenshtein
 python-multipart
-sentencepiece
-protobuf
 gunicorn

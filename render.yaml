@@ -75,3 +75,5 @@ envVarGroups:
         sync: false
       - key: SUPABASE_PG_URL
         sync: false
+      - key: HF_TOKEN
+        sync: false
