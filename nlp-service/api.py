@@ -12,8 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Initialize our components (but don't load the heavy ML model until app startup)
-# Using ckiplab/albert-tiny-chinese-ner for lightweight NER extraction
-ner_manager = NERModelManager("ckiplab/albert-tiny-chinese-ner")
+# Using dslim/bert-base-NER for English Named Entity Recognition
+ner_manager = NERModelManager("dslim/bert-base-NER")
 normalizer = SkillNormalizer()
 
 @asynccontextmanager
