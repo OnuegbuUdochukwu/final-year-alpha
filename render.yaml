@@ -1,6 +1,6 @@
 # Render Blueprint Configuration
 services:
-  - type: pserv
+  - type: web
     name: fyp-nlp
     runtime: docker
     rootDir: nlp-service
@@ -12,7 +12,7 @@ services:
         value: 8000
       - fromGroup: fyp-shared-secrets
 
-  - type: pserv
+  - type: web
     name: fyp-graph
     runtime: docker
     rootDir: graph-service
@@ -37,12 +37,12 @@ services:
       - key: NLP_SERVICE_URL
         fromService:
           name: fyp-nlp
-          type: pserv
+          type: web
           property: hostport
       - key: GRAPH_SERVICE_URL
         fromService:
           name: fyp-graph
-          type: pserv
+          type: web
           property: hostport
       - key: ALLOWED_ORIGINS
         value: http://localhost:5173,https://fyp-frontend.onrender.com,https://fyp-frontend-it80.onrender.com
