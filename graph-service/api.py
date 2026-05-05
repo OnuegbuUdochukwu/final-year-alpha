@@ -100,6 +100,32 @@ async def health_check():
     return {"status": "active", "engine_loaded": (engine is not None and engine.G.number_of_nodes() > 0)}
 
 
+@app.get("/debug-neo4j")
+async def debug_neo4j():
+    """Temporary diagnostic endpoint – shows which env vars are loaded and tests connectivity."""
+    uri = os.getenv("NEO4J_URI", "<NOT SET>")
+    user = os.getenv("NEO4J_USERNAME", "<NOT SET>")
+    db = os.getenv("NEO4J_DATABASE", "<NOT SET>")
+    pw_set = "YES" if os.getenv("NEO4J_PASSWORD") else "NO"
+
+    connectivity = "untested"
+    if engine:
+        try:
+            engine.neo_driver.verify_connectivity()
+            connectivity = "OK"
+        except Exception as e:
+            connectivity = f"FAILED: {str(e)}"
+
+    return {
+        "NEO4J_URI": uri,
+        "NEO4J_USERNAME": user,
+        "NEO4J_DATABASE": db,
+        "NEO4J_PASSWORD_SET": pw_set,
+        "connectivity": connectivity,
+        "graph_nodes": engine.G.number_of_nodes() if engine else 0
+    }
+
+
 # ─── Pathfinding ──────────────────────────────────────────────────────────────
 @app.get("/find-path", response_model=PathResponse)
 async def get_optimal_path(

@@ -18,9 +18,19 @@ class PathfinderGraphEngine:
         self.neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
         self.neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
         self.neo4j_database = os.getenv("NEO4J_DATABASE", "neo4j")
-        
+
+        # Diagnostic logging (mask password for security)
+        logger.info(f"Neo4j Config -> URI: {self.neo4j_uri}, User: {self.neo4j_user}, Database: {self.neo4j_database}")
+
         self.neo_driver = GraphDatabase.driver(self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password))
         self.G = nx.DiGraph()
+
+        # Verify connectivity immediately so errors appear in boot logs
+        try:
+            self.neo_driver.verify_connectivity()
+            logger.info("Neo4j connectivity verified successfully.")
+        except Exception as e:
+            logger.error(f"Neo4j connectivity check FAILED: {e}")
         
     def close(self):
         self.neo_driver.close()
