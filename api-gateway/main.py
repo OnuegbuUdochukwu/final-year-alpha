@@ -129,12 +129,19 @@ async def proxy_parse_resume(request: Request, _user=Depends(verify_token)):
 @app.get("/api/find-path")
 async def proxy_find_path(request: Request, _user=Depends(verify_token)):
     """Proxy: GET /api/find-path?... → graph-service:8001/find-path"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(
-            f"{GRAPH_SERVICE_URL}/find-path",
-            params=dict(request.query_params)
-        )
-    return JSONResponse(status_code=resp.status_code, content=resp.json())
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{GRAPH_SERVICE_URL}/find-path",
+                params=dict(request.query_params)
+            )
+        try:
+            content = resp.json()
+        except ValueError:
+            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
+        return JSONResponse(status_code=resp.status_code, content=content)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
 
 @app.post("/api/complete-step")
 async def proxy_complete_step(request: Request, user=Depends(verify_token)):
@@ -151,12 +158,19 @@ async def proxy_complete_step(request: Request, user=Depends(verify_token)):
     # updating other users' skill vectors.
     body["user_id"] = user.get("sub", body.get("user_id", "anonymous"))
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.post(
-            f"{GRAPH_SERVICE_URL}/complete-step",
-            json=body
-        )
-    return JSONResponse(status_code=resp.status_code, content=resp.json())
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{GRAPH_SERVICE_URL}/complete-step",
+                json=body
+            )
+        try:
+            content = resp.json()
+        except ValueError:
+            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
+        return JSONResponse(status_code=resp.status_code, content=content)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
 
 @app.get("/api/current-skills/{user_id}")
 async def proxy_current_skills(user_id: str, request: Request, user=Depends(verify_token)):
@@ -170,9 +184,16 @@ async def proxy_current_skills(user_id: str, request: Request, user=Depends(veri
     if jwt_user != user_id and jwt_user != "admin":
         raise HTTPException(status_code=403, detail="Access denied.")
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(f"{GRAPH_SERVICE_URL}/skills/{user_id}")
-    return JSONResponse(status_code=resp.status_code, content=resp.json())
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{GRAPH_SERVICE_URL}/skills/{user_id}")
+        try:
+            content = resp.json()
+        except ValueError:
+            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
+        return JSONResponse(status_code=resp.status_code, content=content)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
