@@ -38,12 +38,12 @@ services:
         fromService:
           name: fyp-nlp
           type: web
-          property: hostport
+          envVarKey: RENDER_EXTERNAL_URL
       - key: GRAPH_SERVICE_URL
         fromService:
           name: fyp-graph
           type: web
-          property: hostport
+          envVarKey: RENDER_EXTERNAL_URL
       - key: ALLOWED_ORIGINS
         value: http://localhost:5173,https://fyp-frontend.onrender.com,https://fyp-frontend-it80.onrender.com
       - fromGroup: fyp-shared-secrets
