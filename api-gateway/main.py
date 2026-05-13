@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import httpx
+import psycopg2
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
@@ -25,6 +26,9 @@ NLP_SERVICE_URL = f"http://{_raw_nlp}" if not _raw_nlp.startswith("http") else _
 
 _raw_graph = os.getenv("GRAPH_SERVICE_URL", "http://localhost:8001")
 GRAPH_SERVICE_URL = f"http://{_raw_graph}" if not _raw_graph.startswith("http") else _raw_graph
+
+# Supabase PostgreSQL connection string for user state management
+SUPABASE_PG_URL = os.getenv("SUPABASE_PG_URL", "")
 
 # Demo credentials (replace with DB lookup in production)
 DEMO_USERS = {
@@ -51,6 +55,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── PostgreSQL Helpers (user state) ─────────────────────────────────────────
+def _get_pg_conn():
+    """Returns an open psycopg2 connection or raises HTTP 503."""
+    if not SUPABASE_PG_URL:
+        raise HTTPException(status_code=503, detail="Database not configured (SUPABASE_PG_URL missing).")
+    return psycopg2.connect(SUPABASE_PG_URL)
+
+def _ensure_user_skills_table(cur):
+    """Idempotently creates the user_skills table if it does not exist."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_skills (
+            id          SERIAL PRIMARY KEY,
+            user_id     TEXT NOT NULL,
+            skill_name  TEXT NOT NULL,
+            completed_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(user_id, skill_name)
+        );
+    """)
 
 # Expose Prometheus metrics at /metrics
 Instrumentator().instrument(app).expose(app)
@@ -144,40 +167,50 @@ async def proxy_find_path(request: Request, _user=Depends(verify_token)):
         raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
 
 @app.post("/api/complete-step")
-async def proxy_complete_step(request: Request, user=Depends(verify_token)):
+async def handle_complete_step(request: Request, user=Depends(verify_token)):
     """
-    Proxy: POST /api/complete-step → graph-service:8001/complete-step
+    Marks a learning milestone as complete by upserting directly into
+    the Supabase PostgreSQL `user_skills` table.
 
-    Phase 6.3.2 enhancement: the user_id is injected from the verified JWT
-    payload (the `sub` claim) so the client never has to supply it manually.
-    The request body only needs to contain `skill_name`.
+    Phase 6.3.2: the user_id is extracted from the verified JWT `sub` claim
+    so the client never has to supply it manually.
     """
     body = await request.json()
 
-    # Override/inject user_id from the JWT — prevents clients from
-    # updating other users' skill vectors.
-    body["user_id"] = user.get("sub", body.get("user_id", "anonymous"))
+    # Extract user identity from the JWT — prevents spoofing.
+    user_id = user.get("sub", body.get("user_id", "anonymous"))
+    skill_name = body.get("skill_name", "")
+
+    if not skill_name:
+        raise HTTPException(status_code=400, detail="Missing required field: skill_name")
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                f"{GRAPH_SERVICE_URL}/complete-step",
-                json=body
-            )
-        try:
-            content = resp.json()
-        except ValueError:
-            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
-        return JSONResponse(status_code=resp.status_code, content=content)
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_user_skills_table(cur)
+        cur.execute("""
+            INSERT INTO user_skills (user_id, skill_name)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id, skill_name) DO UPDATE
+                SET completed_at = NOW();
+        """, (user_id, skill_name))
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"Skill '{skill_name}' marked complete for user '{user_id}'.")
+        return {"status": "ok", "user_id": user_id, "skill_completed": skill_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DB error recording skill completion: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to record skill completion.")
 
 @app.get("/api/current-skills/{user_id}")
-async def proxy_current_skills(user_id: str, request: Request, user=Depends(verify_token)):
+async def get_current_skills(user_id: str, request: Request, user=Depends(verify_token)):
     """
-    Proxy: GET /api/current-skills/{user_id} → graph-service:8001/skills/{user_id}
+    Returns the list of skills already marked complete for a given user
+    by querying the Supabase PostgreSQL `user_skills` table directly.
 
-    Returns the list of skills already marked complete for a given user.
     Only the user themselves (JWT sub == user_id) or admin can query this.
     """
     jwt_user = user.get("sub", "")
@@ -185,15 +218,27 @@ async def proxy_current_skills(user_id: str, request: Request, user=Depends(veri
         raise HTTPException(status_code=403, detail="Access denied.")
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(f"{GRAPH_SERVICE_URL}/skills/{user_id}")
-        try:
-            content = resp.json()
-        except ValueError:
-            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
-        return JSONResponse(status_code=resp.status_code, content=content)
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_user_skills_table(cur)
+        cur.execute("""
+            SELECT skill_name, completed_at::text
+            FROM user_skills
+            WHERE user_id = %s
+            ORDER BY completed_at DESC;
+        """, (user_id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        skills = [{"skill_name": row[0], "completed_at": row[1]} for row in rows]
+        logger.info(f"Retrieved {len(skills)} completed skills for user '{user_id}'.")
+        return {"user_id": user_id, "completed_skills": skills}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DB error fetching user skills: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user skills.")
 
 if __name__ == "__main__":
     import uvicorn
