@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-_PRIMARY_MODEL  = "mistralai/Mistral-7B-Instruct-v0.2"
+_PRIMARY_MODEL  = "mistralai/Mistral-7B-Instruct-v0.3"
 _FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 _HF_API_BASE    = "https://api-inference.huggingface.co/models"
 _TIMEOUT_SEC    = 30   # raised from 25s to handle cold starts on HF free tier
@@ -81,21 +81,22 @@ def generate_subgraph(target_role: str) -> dict:
     model = os.getenv("JIT_MODEL", _PRIMARY_MODEL)
     user_message = f'Generate a learning path subgraph for the role: "{target_role}"'
 
-    prompt = f"[INST] {_SYSTEM_PROMPT}\n\n{user_message} [/INST]"
     payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 1200,
-            "temperature": 0.1,
-            "return_full_text": False
-        }
+        "model": model,
+        "messages": [
+            {"role": "system",  "content": _SYSTEM_PROMPT},
+            {"role": "user",    "content": user_message},
+        ],
+        "max_tokens": 1200,
+        "temperature": 0.1,
+        "stream": False
     }
     headers = {
         "Authorization": f"Bearer {hf_token}",
         "Content-Type": "application/json",
     }
 
-    url = f"{_HF_API_BASE}/{model}"
+    url = f"{_HF_API_BASE}/{model}/v1/chat/completions"
     logger.info(f"[JIT] Calling HF API: model={model}, target='{target_role}'")
 
     # ── Try primary model, fall back once on timeout ──────────────────────────
@@ -224,7 +225,8 @@ def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
     except requests.Timeout:
         logger.warning(f"[JIT] Primary model '{model}' timed out. Trying fallback...")
         # One retry with fallback model
-        fallback_url = f"{_HF_API_BASE}/{_FALLBACK_MODEL}"
+        fallback_url = f"{_HF_API_BASE}/{_FALLBACK_MODEL}/v1/chat/completions"
+        payload["model"] = _FALLBACK_MODEL
         try:
             resp = requests.post(
                 fallback_url, headers=headers, json=payload, timeout=_TIMEOUT_SEC
@@ -250,8 +252,8 @@ def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
 
     try:
         data = resp.json()
-        if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-            return data[0]["generated_text"]
+        if "choices" in data and len(data["choices"]) > 0:
+            return data["choices"][0]["message"]["content"]
         elif isinstance(data, dict) and "error" in data:
             raise JITGenerationError(f"HF API Error: {data['error']}")
         else:
