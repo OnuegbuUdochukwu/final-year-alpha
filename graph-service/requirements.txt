@@ -11,3 +11,4 @@ psycopg2-binary
 sentence-transformers
 pulp
 scikit-learn
+requests

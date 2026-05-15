@@ -8,6 +8,12 @@ from prometheus_fastapi_instrumentator import Instrumentator
 import os
 import psycopg2
 from dotenv import load_dotenv
+from jit_generator import (
+    generate_subgraph,
+    inject_into_neo4j,
+    hot_patch_networkx,
+    JITGenerationError,
+)
 load_dotenv()
 
 # Import our custom mathematical engine
@@ -148,10 +154,41 @@ async def get_optimal_path(
         route = engine.find_optimal_path(start, target)
 
         if route is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No viable path found from '{start}' to '{target}'. Check node names and graph connections."
-            )
+            # ── JIT fallback: generate → inject → hot-patch → re-run ────────
+            hf_token = os.getenv("HF_TOKEN", "")
+            if not hf_token:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"No viable path found from '{start}' to '{target}'. "
+                        "Set the HF_TOKEN environment variable to enable "
+                        "Just-In-Time graph generation for unknown targets."
+                    )
+                )
+
+            logger.info(f"Path not found — triggering JIT generation for '{target}'")
+            try:
+                subgraph = generate_subgraph(target)
+                inject_into_neo4j(subgraph, engine)
+                hot_patch_networkx(engine)
+                route = engine.find_optimal_path(start, target)
+            except JITGenerationError as e:
+                logger.error(f"[JIT] Generation failed for '{target}': {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"JIT Graph Generation failed: {str(e)}"
+                )
+
+            if route is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"JIT generation succeeded (nodes injected into Neo4j) but "
+                        f"A* still found no connected path from '{start}' to '{target}'. "
+                        "Check that the generated subgraph includes an edge from 'Foundation'."
+                    )
+                )
+            logger.info(f"[JIT] Path for '{target}' found successfully after generation.")
 
         raw_steps = route["steps"]
         # Apply default fallbacks for cost/hours if the Neo4j edge is missing them
