@@ -2,7 +2,7 @@
 // 3-step wizard: Skill Review → Live Preview → PDF Download
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Easing } from "framer-motion";
 import {
   FileText, Sparkles, Download, ChevronRight, ChevronLeft,
   Plus, X, RefreshCw, Loader2, Check, AlertCircle, GripVertical
@@ -37,11 +37,11 @@ const slideVariants = {
     x: dir > 0 ? 64 : -64,
     opacity: 0,
   }),
-  center: { x: 0, opacity: 1, transition: { duration: 0.3, ease: "easeOut" } },
+  center: { x: 0, opacity: 1, transition: { duration: 0.3, ease: "easeOut" as Easing } },
   exit: (dir: number) => ({
     x: dir > 0 ? -64 : 64,
     opacity: 0,
-    transition: { duration: 0.2, ease: "easeIn" },
+    transition: { duration: 0.2, ease: "easeIn" as Easing },
   }),
 };
 
