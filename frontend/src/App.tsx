@@ -13,12 +13,14 @@
  */
 
 import { useState, useCallback } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, FileText } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { useAuth } from './context/AuthContext';
 import LoginModal from './components/LoginModal';
 import ResumeUpload from './components/ResumeUpload';
 import TimelineRoadmap from './components/TimelineRoadmap';
 import PredictedResume from './components/PredictedResume';
+import ResumeBuilder from './components/ResumeBuilder';
 import client from './api/client';
 import './App.css';
 
@@ -33,6 +35,9 @@ function App() {
   // Core data state
   const [pathData, setPathData] = useState<any>(null);
   const [parsedSkills, setParsedSkills] = useState<ParsedSkill[]>([]);
+
+  // Resume builder visibility
+  const [showResumeBuilder, setShowResumeBuilder] = useState(false);
 
   // Dynamic recalculation state (Phase 6.3.2)
   const [currentStart, setCurrentStart] = useState<string>('Foundation');
@@ -128,7 +133,7 @@ function App() {
             topSkill={currentStart !== 'Foundation' ? currentStart : null}
           />
 
-          {/* Timeline + Predicted Resume appear after a path is generated */}
+          {/* Timeline + Predicted Resume + Resume Builder appear after a path is generated */}
           {pathData && (
             <>
               <TimelineRoadmap
@@ -137,10 +142,40 @@ function App() {
                 isRecalculating={isRecalculating}
               />
               <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
+
+              {/* ── Build Resume CTA ── */}
+              {token && (
+                <div className="flex justify-center mt-4 mb-12">
+                  <button
+                    type="button"
+                    onClick={() => setShowResumeBuilder(true)}
+                    className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-100"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Build &amp; Download Resume
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* ── Resume Builder Modal ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showResumeBuilder && token && (
+          <ResumeBuilder
+            token={token}
+            cvSkills={parsedSkills.map(s => s.name)}
+            targetRole={pathData?.target_skill ?? ''}
+            courses={(pathData?.steps ?? []).map((step: any) => ({
+              name: step.course,
+              provider: '',
+            }))}
+            onClose={() => setShowResumeBuilder(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

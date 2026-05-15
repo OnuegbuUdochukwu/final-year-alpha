@@ -1,15 +1,23 @@
 import os
 import time
+import html
 import logging
+import asyncio
 import httpx
 import psycopg2
 import jwt
+from datetime import datetime, timezone
+from collections import defaultdict
+from pathlib import Path
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from prometheus_fastapi_instrumentator import Instrumentator
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from weasyprint import HTML as WeasyprintHTML
 
 load_dotenv()
 
@@ -29,6 +37,17 @@ GRAPH_SERVICE_URL = f"http://{_raw_graph}" if not _raw_graph.startswith("http") 
 
 # Supabase PostgreSQL connection string for user state management
 SUPABASE_PG_URL = os.getenv("SUPABASE_PG_URL", "")
+
+# Resume rate limiter config (max requests per minute per user)
+RESUME_RATE_LIMIT = int(os.getenv("RESUME_RATE_LIMIT_PER_MIN", "5"))
+_rate_limit_store: dict = defaultdict(list)  # {user_id: [timestamps]}
+
+# Jinja2 template environment — loads from api-gateway/templates/
+_TEMPLATES_DIR = Path(__file__).parent / "templates"
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+    autoescape=select_autoescape(["html"])  # auto-escapes {{ variables }}
+)
 
 # Demo credentials (replace with DB lookup in production)
 DEMO_USERS = {
@@ -239,6 +258,195 @@ async def get_current_skills(user_id: str, request: Request, user=Depends(verify
     except Exception as e:
         logger.error(f"DB error fetching user skills: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve user skills.")
+
+# ─── Resume Feature ──────────────────────────────────────────────────────────
+
+# ── Pydantic models ──────────────────────────────────────────────────────────
+class CourseItem(BaseModel):
+    name: str
+    provider: Optional[str] = ""
+
+class ResumePayload(BaseModel):
+    """Unified request body for both /preview and /generate."""
+    name:            Optional[str]            = "Professional"
+    title:           Optional[str]            = "Career Changer"
+    email:           Optional[str]            = ""
+    linkedin:        Optional[str]            = ""
+    location:        Optional[str]            = ""
+    cv_skills:       Optional[List[str]]      = []
+    gained_skills:   Optional[List[str]]      = []
+    user_additions:  Optional[List[str]]      = []
+    user_removals:   Optional[List[str]]      = []
+    order:           Optional[List[str]]      = []
+    target_role:     Optional[str]            = ""
+    courses:         Optional[List[CourseItem]] = []
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def _sanitise(value: str) -> str:
+    """HTML-escape a user-supplied string to prevent XSS in the Jinja2 template."""
+    return html.escape(str(value).strip())
+
+
+def _check_rate_limit(user_id: str):
+    """Raises HTTP 429 if the user has exceeded RESUME_RATE_LIMIT calls/minute."""
+    now = time.time()
+    window_start = now - 60
+    calls = _rate_limit_store[user_id]
+    # Prune timestamps outside the rolling 1-minute window
+    _rate_limit_store[user_id] = [t for t in calls if t > window_start]
+    if len(_rate_limit_store[user_id]) >= RESUME_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {RESUME_RATE_LIMIT} resume generations per minute."
+        )
+    _rate_limit_store[user_id].append(now)
+
+
+def _build_template_context(user: dict, payload: ResumePayload) -> dict:
+    """Merges and sanitises all resume fields into a Jinja2 template context dict."""
+    # Merge skills: cv + gained + additions, minus removals
+    merged_cv     = list({_sanitise(s) for s in payload.cv_skills})
+    merged_gained = list({_sanitise(s) for s in payload.gained_skills + payload.user_additions})
+    removals      = {_sanitise(s) for s in payload.user_removals}
+    merged_cv     = [s for s in merged_cv     if s not in removals]
+    merged_gained = [s for s in merged_gained if s not in removals]
+
+    # Respect user-specified order if provided
+    if payload.order:
+        order_map = {_sanitise(s): i for i, s in enumerate(payload.order)}
+        all_skills = merged_cv + merged_gained
+        all_skills.sort(key=lambda s: order_map.get(s, 9999))
+        # Re-partition after sorting
+        gained_set = set(merged_gained)
+        merged_cv     = [s for s in all_skills if s not in gained_set]
+        merged_gained = [s for s in all_skills if s in gained_set]
+
+    return {
+        "name":         _sanitise(payload.name or user.get("sub", "Professional")),
+        "title":        _sanitise(payload.title or "Career Changer"),
+        "email":        _sanitise(payload.email or ""),
+        "linkedin":     _sanitise(payload.linkedin or ""),
+        "location":     _sanitise(payload.location or ""),
+        "cv_skills":    merged_cv,
+        "gained_skills":merged_gained,
+        "target_role":  _sanitise(payload.target_role or ""),
+        "courses":      [
+            {"name": _sanitise(c.name), "provider": _sanitise(c.provider or "")}
+            for c in (payload.courses or [])
+        ],
+        "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y"),
+    }
+
+
+# ── GET /api/v1/resume/skills ─────────────────────────────────────────────────
+@app.get("/api/v1/resume/skills")
+async def get_resume_skills(request: Request, user=Depends(verify_token)):
+    """
+    Aggregates skills for the authenticated user:
+    - `gained_skills`: pulled from the `user_skills` PostgreSQL table (verified completions)
+    - `cv_skills`: passed by the frontend as a comma-separated query param (from SkillRadar state)
+    - `merged`: deduplicated union of both lists
+    """
+    user_id = user.get("sub", "anonymous")
+
+    # Accept cv skills from query params (frontend SkillRadar state)
+    raw_cv = request.query_params.get("cv_skills", "")
+    cv_skills = [s.strip() for s in raw_cv.split(",") if s.strip()] if raw_cv else []
+
+    # Fetch gained skills from DB
+    gained_skills: List[str] = []
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_user_skills_table(cur)
+        cur.execute(
+            "SELECT skill_name FROM user_skills WHERE user_id = %s ORDER BY completed_at DESC;",
+            (user_id,)
+        )
+        gained_skills = [row[0] for row in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Could not fetch gained skills from DB for '{user_id}': {e}")
+        # Non-fatal — return empty gained list rather than crashing
+
+    merged = list(dict.fromkeys(cv_skills + gained_skills))  # preserves order, deduplicates
+
+    return {
+        "user_id":      user_id,
+        "cv_skills":    cv_skills,
+        "gained_skills":gained_skills,
+        "merged":       merged,
+    }
+
+
+# ── POST /api/v1/resume/preview ───────────────────────────────────────────────
+@app.post("/api/v1/resume/preview", response_class=HTMLResponse)
+async def preview_resume(payload: ResumePayload, user=Depends(verify_token)):
+    """
+    Renders the resume as an HTML string for in-browser preview.
+    Skips WeasyPrint — fast, no file download triggered.
+    """
+    ctx = _build_template_context(user, payload)
+    try:
+        template = _jinja_env.get_template("resume_template.html")
+        html_str = template.render(**ctx)
+    except Exception as e:
+        logger.error(f"Template render error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to render resume template.")
+
+    return HTMLResponse(content=html_str, status_code=200)
+
+
+# ── POST /api/v1/resume/generate ─────────────────────────────────────────────
+@app.post("/api/v1/resume/generate")
+async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
+    """
+    Full pipeline: sanitise → merge → Jinja2 render → WeasyPrint PDF → stream download.
+    Rate-limited to RESUME_RATE_LIMIT calls/minute per user.
+    WeasyPrint is wrapped in a 30-second asyncio timeout.
+    """
+    user_id = user.get("sub", "anonymous")
+    _check_rate_limit(user_id)
+
+    ctx = _build_template_context(user, payload)
+
+    # Step 1: Render Jinja2 template → HTML string
+    try:
+        template = _jinja_env.get_template("resume_template.html")
+        html_str = template.render(**ctx)
+    except Exception as e:
+        logger.error(f"Template render error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to render resume template.")
+
+    # Step 2: Convert HTML → PDF bytes via WeasyPrint (runs in thread pool, 30s timeout)
+    def _render_pdf() -> bytes:
+        return WeasyprintHTML(string=html_str).write_pdf()
+
+    try:
+        pdf_bytes: bytes = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, _render_pdf),
+            timeout=30.0
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="PDF generation timed out (>30s). Please try again.")
+    except Exception as e:
+        logger.error(f"WeasyPrint error for user '{user_id}': {e}")
+        raise HTTPException(status_code=500, detail="PDF generation failed.")
+
+    # Step 3: Stream PDF bytes back as a download
+    filename = f"resume_{ctx['name'].replace(' ', '_')}.pdf"
+    logger.info(f"Resume PDF generated for user '{user_id}' ({len(pdf_bytes)} bytes).")
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
