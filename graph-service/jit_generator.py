@@ -81,21 +81,21 @@ def generate_subgraph(target_role: str) -> dict:
     model = os.getenv("JIT_MODEL", _PRIMARY_MODEL)
     user_message = f'Generate a learning path subgraph for the role: "{target_role}"'
 
+    prompt = f"[INST] {_SYSTEM_PROMPT}\n\n{user_message} [/INST]"
     payload = {
-        "model": model,
-        "messages": [
-            {"role": "system",  "content": _SYSTEM_PROMPT},
-            {"role": "user",    "content": user_message},
-        ],
-        "max_tokens": 1200,
-        "temperature": 0.1,
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 1200,
+            "temperature": 0.1,
+            "return_full_text": False
+        }
     }
     headers = {
         "Authorization": f"Bearer {hf_token}",
         "Content-Type": "application/json",
     }
 
-    url = f"{_HF_API_BASE}/{model}/v1/chat/completions"
+    url = f"{_HF_API_BASE}/{model}"
     logger.info(f"[JIT] Calling HF API: model={model}, target='{target_role}'")
 
     # ── Try primary model, fall back once on timeout ──────────────────────────
@@ -224,8 +224,7 @@ def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
     except requests.Timeout:
         logger.warning(f"[JIT] Primary model '{model}' timed out. Trying fallback...")
         # One retry with fallback model
-        fallback_url = f"{_HF_API_BASE}/{_FALLBACK_MODEL}/v1/chat/completions"
-        payload["model"] = _FALLBACK_MODEL
+        fallback_url = f"{_HF_API_BASE}/{_FALLBACK_MODEL}"
         try:
             resp = requests.post(
                 fallback_url, headers=headers, json=payload, timeout=_TIMEOUT_SEC
@@ -251,7 +250,12 @@ def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
 
     try:
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+            return data[0]["generated_text"]
+        elif isinstance(data, dict) and "error" in data:
+            raise JITGenerationError(f"HF API Error: {data['error']}")
+        else:
+            return str(data)
     except (KeyError, IndexError, ValueError) as e:
         raise JITGenerationError(
             f"Unexpected HF API response shape: {resp.text[:300]}"
