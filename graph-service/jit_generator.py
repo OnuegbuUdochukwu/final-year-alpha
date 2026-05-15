@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 _PRIMARY_MODEL  = "mistralai/Mistral-7B-Instruct-v0.3"
 _FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
-_HF_API_BASE    = "https://api-inference.huggingface.co/models"
+_HF_API_BASE    = "https://api-inference.huggingface.co/v1/chat/completions"
 _TIMEOUT_SEC    = 30   # raised from 25s to handle cold starts on HF free tier
 
 # Normalisation ceiling: edge weight = time_hours / _WEIGHT_CEILING
@@ -96,7 +96,7 @@ def generate_subgraph(target_role: str) -> dict:
         "Content-Type": "application/json",
     }
 
-    url = f"{_HF_API_BASE}/{model}/v1/chat/completions"
+    url = _HF_API_BASE
     logger.info(f"[JIT] Calling HF API: model={model}, target='{target_role}'")
 
     # ── Try primary model, fall back once on timeout ──────────────────────────
@@ -225,7 +225,7 @@ def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
     except requests.Timeout:
         logger.warning(f"[JIT] Primary model '{model}' timed out. Trying fallback...")
         # One retry with fallback model
-        fallback_url = f"{_HF_API_BASE}/{_FALLBACK_MODEL}/v1/chat/completions"
+        fallback_url = _HF_API_BASE
         payload["model"] = _FALLBACK_MODEL
         try:
             resp = requests.post(
