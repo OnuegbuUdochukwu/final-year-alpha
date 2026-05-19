@@ -9,3 +9,4 @@ fuzzywuzzy
 python-Levenshtein
 python-multipart
 gunicorn
+huggingface_hub

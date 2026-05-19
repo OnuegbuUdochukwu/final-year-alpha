@@ -57,14 +57,16 @@ async def parse_resume(file: UploadFile = File(...)):
 
     # 2. Extract structured data via Hugging Face Serverless Inference API (Mistral-7B)
     import os
-    import requests
     import re
     import json
+    from huggingface_hub import InferenceClient
 
     hf_token = os.getenv("HF_TOKEN", "")
     if not hf_token:
         logger.error("HF_TOKEN is not set.")
         raise HTTPException(status_code=500, detail="Inference API token is missing.")
+
+    client = InferenceClient(api_key=hf_token)
 
     # Limit text length to avoid API token/context limits
     truncated_text = raw_text[:4000] if len(raw_text) > 4000 else raw_text
@@ -74,41 +76,18 @@ async def parse_resume(file: UploadFile = File(...)):
         "Do not include markdown. Schema: { 'skills': ['skill1', 'skill2'], 'experience': [{'role': 'string', 'company': 'string', 'years': 'string'}], 'education': [{'degree': 'string', 'institution': 'string'}] }"
     )
 
-    payload = {
-        "model": "mistralai/Mistral-7B-Instruct-v0.3",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
-        ],
-        "max_tokens": 1000,
-        "temperature": 0.1,
-        "stream": False
-    }
-
-    headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json",
-    }
-
     try:
-        # Using requests synchronously (blocking) as in Graph Service
-        resp = requests.post(
-            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3/v1/chat/completions",
-            json=payload,
-            headers=headers,
-            timeout=30
+        response = client.chat.completions.create(
+            model="mistralai/Mistral-7B-Instruct-v0.3",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
+            ],
+            max_tokens=1000,
+            temperature=0.1,
         )
         
-        if resp.status_code == 503:
-            raise HTTPException(status_code=503, detail="Hugging Face model is loading. Please retry in 20-30 seconds.")
-        
-        resp.raise_for_status()
-        resp_json = resp.json()
-        
-        if "choices" in resp_json and len(resp_json["choices"]) > 0:
-            content = resp_json["choices"][0]["message"]["content"]
-        else:
-            raise ValueError(f"Unexpected response shape: {resp_json}")
+        content = response.choices[0].message.content
             
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
