@@ -78,7 +78,7 @@ async def parse_resume(file: UploadFile = File(...)):
 
     try:
         response = client.chat.completions.create(
-            model="mistralai/Mistral-7B-Instruct-v0.3",
+            model="HuggingFaceH4/zephyr-7b-beta",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
