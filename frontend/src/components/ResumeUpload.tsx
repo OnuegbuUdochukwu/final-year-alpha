@@ -5,7 +5,7 @@
  * The JWT is injected automatically by the Axios client interceptor.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import SkillRadar from './SkillRadar';
@@ -26,6 +26,7 @@ interface ResumeUploadProps {
 const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed, topSkill }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [parsedSkills, setParsedSkills] = useState<ParsedSkill[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +37,27 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
       setParsedSkills(null);
     }
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBaselineData = async () => {
+      try {
+        const response = await client.get('/api/user/profile');
+        if (isMounted && response.data?.baseline_resume_data?.skills) {
+          const skills: ParsedSkill[] = response.data.baseline_resume_data.skills;
+          skills.sort((a, b) => b.confidence - a.confidence);
+          setParsedSkills(skills);
+          onSkillsParsed(skills);
+        }
+      } catch (err) {
+        console.error("Failed to fetch baseline resume data:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    fetchBaselineData();
+    return () => { isMounted = false; };
+  }, [onSkillsParsed]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -81,14 +103,19 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
     <div className="w-full max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          Upload Your Resume
+          {parsedSkills ? 'Your Skill Profile' : 'Upload Your Resume'}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           We'll analyze your current skills to build your personalized career pathway.
         </p>
       </div>
 
-      {!parsedSkills ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center p-12 space-y-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading your saved profile...</p>
+        </div>
+      ) : !parsedSkills ? (
         <>
           <div
             {...getRootProps()}

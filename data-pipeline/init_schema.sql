@@ -10,6 +10,7 @@ CREATE TABLE users (
     target_role VARCHAR(255),
     budget_usd NUMERIC(10, 2) DEFAULT 0.00,
     time_cap_hours INTEGER DEFAULT 0,
+    baseline_resume_data JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

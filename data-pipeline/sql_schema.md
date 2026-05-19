@@ -5,7 +5,7 @@ This document corresponds to Phase 1.2.1 and defines the foundational structured
 ## 1. Users Table
 Handles user identity, target state, and optimization constraints.
 - Identifiers: `user_id` (UUID), `firebase_uid`.
-- Data: `email`, `current_skills_json` (dynamic skill vector), `target_role`.
+- Data: `email`, `current_skills_json` (dynamic skill vector), `baseline_resume_data` (JSONB for parsed resume), `target_role`.
 - Constraints: `budget_usd`, `time_cap_hours`.
 
 ## 2. Skills Table
