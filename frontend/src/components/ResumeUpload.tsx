@@ -43,8 +43,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
     const fetchBaselineData = async () => {
       try {
         const response = await client.get('/api/user/profile');
-        if (isMounted && response.data?.baseline_resume_data?.skills) {
-          const skills: ParsedSkill[] = response.data.baseline_resume_data.skills;
+        if (isMounted && response.data?.current_skills_json?.skills) {
+          const skills: ParsedSkill[] = response.data.current_skills_json.skills;
           skills.sort((a, b) => b.confidence - a.confidence);
           setParsedSkills(skills);
           onSkillsParsed(skills);

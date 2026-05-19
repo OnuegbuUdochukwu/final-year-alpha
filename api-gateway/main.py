@@ -170,16 +170,17 @@ async def proxy_parse_resume(request: Request, _user=Depends(verify_token)):
                 try:
                     conn = _get_pg_conn()
                     cur = conn.cursor()
-                    # We match on firebase_uid since it's VARCHAR and handles string identities (like "admin") safely.
+                    email = _user.get("email", f"{user_id}@placeholder.com")
                     cur.execute("""
-                        UPDATE users 
-                        SET baseline_resume_data = %s
-                        WHERE firebase_uid = %s;
-                    """, (json.dumps(resp_data), user_id))
+                        INSERT INTO users (firebase_uid, email, current_skills_json)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (firebase_uid) DO UPDATE 
+                        SET current_skills_json = EXCLUDED.current_skills_json;
+                    """, (user_id, email, json.dumps(resp_data)))
                     conn.commit()
                     cur.close()
                     conn.close()
-                    logger.info(f"Successfully saved baseline resume data for user {user_id}")
+                    logger.info(f"Successfully upserted current_skills_json for user {user_id}")
                 except Exception as e:
                     logger.error(f"ERROR: Failed to save resume data to Supabase: {e}")
                     # Continue anyway to not break the UI
@@ -290,7 +291,7 @@ async def get_user_profile(request: Request, user=Depends(verify_token)):
         conn = _get_pg_conn()
         cur = conn.cursor()
         cur.execute("""
-            SELECT baseline_resume_data
+            SELECT current_skills_json
             FROM users
             WHERE firebase_uid = %s;
         """, (user_id,))
@@ -300,11 +301,11 @@ async def get_user_profile(request: Request, user=Depends(verify_token)):
 
         # If user row exists and has data, return it
         resume_data = row[0] if row else {}
-        return {"user_id": user_id, "baseline_resume_data": resume_data}
+        return {"user_id": user_id, "current_skills_json": resume_data}
     except Exception as e:
         logger.error(f"DB error fetching user profile: {str(e)}")
         # If the table doesn't exist yet in a fresh environment, fail gracefully
-        return {"user_id": user_id, "baseline_resume_data": {}}
+        return {"user_id": user_id, "current_skills_json": {}}
 
 # ─── Resume Feature ──────────────────────────────────────────────────────────
 
