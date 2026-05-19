@@ -1,11 +1,11 @@
 import os
 import json
 import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from neo4j import GraphDatabase
 
 # Load environment variables from .env
-load_dotenv()
+load_dotenv(find_dotenv())
 
 # Database credentials
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -33,7 +33,8 @@ def process_roadmaps():
         print(f"Failed to connect to Neo4j: {e}")
         return
 
-    base_dir = "./developer-roadmap-master/src/data/roadmaps/"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(script_dir, "../developer-roadmap-master/src/data/roadmaps/")
     
     for role in TARGET_ROLES:
         role_dir = os.path.join(base_dir, role)
