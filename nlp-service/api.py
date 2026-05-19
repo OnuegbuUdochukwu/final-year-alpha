@@ -64,38 +64,99 @@ async def parse_resume(file: UploadFile = File(...)):
     if not raw_text:
         raise HTTPException(status_code=415, detail="Could not extract text or unsupported format.")
 
-    # 2. Entity Recognition (via HF Inference API)
-    try:
-        entities_data = ner_manager.extract_entities(raw_text)
-        
-        extracted_words = []
-        if isinstance(entities_data, list) and len(entities_data) > 0 and isinstance(entities_data[0], dict):
-            # HF Inference API returns dicts with 'word', 'entity_group', 'score'
-            extracted_words = [ent['word'] for ent in entities_data if 'word' in ent]
-        
-        if not extracted_words:
-            # Fallback to keyword extraction if API returned nothing useful
-            logger.warning("NER returned no entities, falling back to keyword extraction.")
-            words = raw_text.split()
-            extracted_words = [word.strip(".,();:") for word in words if len(word) > 1]
-    except Exception as e:
-        logger.error(f"NER Extraction failed: {e}")
-        raise HTTPException(status_code=500, detail="NLP modeling failed.")
+    # 2. Extract structured data via Hugging Face Serverless Inference API (Mistral-7B)
+    import os
+    import requests
+    import re
+    import json
 
-    # 3. Normalization
-    try:
-        canonical_skills = normalizer.normalize_list(extracted_words)
-    except Exception as e:
-        logger.error(f"Normalization failed: {e}")
-        raise HTTPException(status_code=500, detail="Skill mapping failed.")
+    hf_token = os.getenv("HF_TOKEN", "")
+    if not hf_token:
+        logger.error("HF_TOKEN is not set.")
+        raise HTTPException(status_code=500, detail="Inference API token is missing.")
 
-    logger.info(f"Successfully parsed resume. Extracted {len(canonical_skills)} normalized skills.")
-    
-    return {
-        "filename": file.filename,
-        "extracted_skills": canonical_skills,
-        "raw_text_length": len(raw_text)
+    # Limit text length to avoid API token/context limits
+    truncated_text = raw_text[:4000] if len(raw_text) > 4000 else raw_text
+
+    system_prompt = (
+        "You are an expert HR data extractor. Extract the data from the provided resume text into strictly formatted JSON. "
+        "Do not include markdown. Schema: { 'skills': ['skill1', 'skill2'], 'experience': [{'role': 'string', 'company': 'string', 'years': 'string'}], 'education': [{'degree': 'string', 'institution': 'string'}] }"
+    )
+
+    payload = {
+        "model": "mistralai/Mistral-7B-Instruct-v0.3",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
+        ],
+        "max_tokens": 1000,
+        "temperature": 0.1,
+        "stream": False
     }
+
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        # Using requests synchronously (blocking) as in Graph Service
+        resp = requests.post(
+            "https://api-inference.huggingface.co/v1/chat/completions",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        if resp.status_code == 503:
+            raise HTTPException(status_code=503, detail="Hugging Face model is loading. Please retry in 20-30 seconds.")
+        
+        resp.raise_for_status()
+        resp_json = resp.json()
+        
+        if "choices" in resp_json and len(resp_json["choices"]) > 0:
+            content = resp_json["choices"][0]["message"]["content"]
+        else:
+            raise ValueError(f"Unexpected response shape: {resp_json}")
+            
+    except Exception as e:
+        logger.error(f"Failed to communicate with Hugging Face: {e}")
+        raise HTTPException(status_code=502, detail=f"Bad Gateway to Hugging Face Inference API: {str(e)}")
+
+    # 3. Parse JSON and transform the skills format for frontend compatibility
+    try:
+        # Clean markdown fences if any
+        cleaned = re.sub(r"```(?:json)?", "", content, flags=re.IGNORECASE).strip()
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON object found in response.")
+            
+        parsed_data = json.loads(match.group(0))
+        
+        # Format the skills for frontend (which expects list of objects with 'name' and 'confidence')
+        raw_skills = parsed_data.get("skills", [])
+        formatted_skills = []
+        for s in raw_skills:
+            if isinstance(s, dict) and "name" in s:
+                formatted_skills.append({
+                    "name": s["name"],
+                    "confidence": s.get("confidence", 0.95)
+                })
+            elif isinstance(s, str):
+                formatted_skills.append({
+                    "name": s,
+                    "confidence": 0.95
+                })
+        
+        parsed_data["skills"] = formatted_skills
+        parsed_data["filename"] = file.filename
+        
+    except Exception as e:
+        logger.error(f"Failed to parse LLM response JSON: {e}. Raw content: {content}")
+        raise HTTPException(status_code=500, detail="Failed to parse structured resume data.")
+
+    logger.info(f"Successfully parsed resume via LLM. Extracted {len(formatted_skills)} skills.")
+    return parsed_data
 
 if __name__ == "__main__":
     import uvicorn
