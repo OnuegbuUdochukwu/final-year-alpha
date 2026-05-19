@@ -8,12 +8,6 @@ from prometheus_fastapi_instrumentator import Instrumentator
 import os
 import psycopg2
 from dotenv import load_dotenv
-from jit_generator import (
-    generate_subgraph,
-    inject_into_neo4j,
-    hot_patch_networkx,
-    JITGenerationError,
-)
 load_dotenv()
 
 # Import our custom mathematical engine
@@ -132,6 +126,58 @@ async def debug_neo4j():
     }
 
 
+# ─── Roadmap Generation ───────────────────────────────────────────────────────
+@app.get("/generate")
+async def generate_roadmap(target_role: str = Query(..., description="The target role to fetch the roadmap for (e.g., 'frontend')")):
+    """
+    Retrieves the pre-built roadmap from Neo4j based on the requested target_role.
+    Returns the graph structured for React Flow.
+    """
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Graph Engine is not currently initialized. Check Neo4j connection.")
+
+    try:
+        with engine.neo_driver.session(database=engine.neo4j_database) as session:
+            # Fetch nodes
+            nodes_result = session.run(
+                "MATCH (n:Skill {role: $role}) RETURN n.id AS id, n.name AS label",
+                role=target_role
+            )
+            raw_nodes = [record for record in nodes_result]
+
+            if not raw_nodes:
+                raise HTTPException(status_code=404, detail=f"No roadmap found for role '{target_role}'.")
+
+            # Fetch edges
+            edges_result = session.run(
+                "MATCH (s:Skill {role: $role})-[:REQUIRES]->(t:Skill {role: $role}) RETURN s.id AS source, t.id AS target",
+                role=target_role
+            )
+            raw_edges = [record for record in edges_result]
+
+        # Format for React Flow
+        react_flow_nodes = [
+            {"id": row["id"], "data": {"label": row["label"]}, "position": {"x": 0, "y": 0}}
+            for row in raw_nodes
+        ]
+
+        react_flow_edges = [
+            {"id": f"e-{row['source']}-{row['target']}", "source": row["source"], "target": row["target"]}
+            for row in raw_edges
+        ]
+
+        return {
+            "nodes": react_flow_nodes,
+            "edges": react_flow_edges
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch roadmap from Neo4j: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error while fetching roadmap.")
+
+
 # ─── Pathfinding ──────────────────────────────────────────────────────────────
 @app.get("/find-path", response_model=PathResponse)
 async def get_optimal_path(
@@ -154,41 +200,10 @@ async def get_optimal_path(
         route = engine.find_optimal_path(start, target)
 
         if route is None:
-            # ── JIT fallback: generate → inject → hot-patch → re-run ────────
-            hf_token = os.getenv("HF_TOKEN", "")
-            if not hf_token:
-                raise HTTPException(
-                    status_code=404,
-                    detail=(
-                        f"No viable path found from '{start}' to '{target}'. "
-                        "Set the HF_TOKEN environment variable to enable "
-                        "Just-In-Time graph generation for unknown targets."
-                    )
-                )
-
-            logger.info(f"Path not found — triggering JIT generation for '{target}'")
-            try:
-                subgraph = generate_subgraph(target)
-                inject_into_neo4j(subgraph, engine)
-                hot_patch_networkx(engine)
-                route = engine.find_optimal_path(start, target)
-            except JITGenerationError as e:
-                logger.error(f"[JIT] Generation failed for '{target}': {e}")
-                raise HTTPException(
-                    status_code=503,
-                    detail=f"JIT Graph Generation failed: {str(e)}"
-                )
-
-            if route is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=(
-                        f"JIT generation succeeded (nodes injected into Neo4j) but "
-                        f"A* still found no connected path from '{start}' to '{target}'. "
-                        "Check that the generated subgraph includes an edge from 'Foundation'."
-                    )
-                )
-            logger.info(f"[JIT] Path for '{target}' found successfully after generation.")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No viable path found from '{start}' to '{target}'."
+            )
 
         raw_steps = route["steps"]
         # Apply default fallbacks for cost/hours if the Neo4j edge is missing them
