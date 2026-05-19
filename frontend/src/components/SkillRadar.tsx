@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Radar,
   RadarChart,
@@ -9,29 +9,44 @@ import {
   Tooltip
 } from 'recharts';
 
-interface ParsedSkill {
-  name: string;
-  confidence: number;
-}
-
 interface SkillRadarProps {
-  skills: ParsedSkill[];
+  data: any;
 }
 
-const SkillRadar: React.FC<SkillRadarProps> = ({ skills }) => {
-  // Process the data for Recharts
-  // Ensure we have at least 3 points for a valid radar shape, padding with empty if necessary
-  const processedData = skills.map((skill) => ({
-    subject: skill.name,
-    A: skill.confidence * 100, // map back to 0-100 scale for aesthetics
-    fullMark: 100,
-  }));
+const EmptyState = () => (
+  <div className="w-full h-72 mt-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+    <p>No skills data available</p>
+  </div>
+);
+
+const SkillRadar: React.FC<SkillRadarProps> = ({ data }) => {
+  // 1. Safely handle empty states early
+  if (!data || !data.current_skills_json || !data.current_skills_json.skills) {
+    return <EmptyState />;
+  }
+
+  const chartData = useMemo(() => {
+    const skills = data?.current_skills_json?.skills;
+    
+    if (!skills || !Array.isArray(skills) || skills.length === 0) {
+       return []; 
+    }
+    
+    // 2. Map the agent's object structure into the Radar Chart structure
+    return skills.slice(0, 6).map((skillObj: any, index: number) => ({
+      subject: skillObj.name, 
+      // Convert 0.95 confidence to 95 score, with slight visual variance
+      score: Math.round((skillObj.confidence || 0.95) * 100) - (index * 2), 
+      fullMark: 100
+    }));
+  }, [data]);
 
   // If there are less than 3 skills, add placeholders to make the radar chart look like a polygon
+  const processedData = [...chartData];
   while (processedData.length < 3) {
     processedData.push({
       subject: `Skill ${processedData.length + 1}`,
-      A: 0,
+      score: 0,
       fullMark: 100,
     });
   }
@@ -62,11 +77,11 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ skills }) => {
               border: 'none', 
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' 
             }}
-            formatter={(value: any) => [`${Number(value).toFixed(0)}%`, 'Confidence']}
+            formatter={(value: any) => [`${Number(value).toFixed(0)}%`, 'Score']}
           />
           <Radar
             name="Skills"
-            dataKey="A"
+            dataKey="score"
             stroke="#3b82f6"
             fill="#3b82f6"
             fillOpacity={0.5}

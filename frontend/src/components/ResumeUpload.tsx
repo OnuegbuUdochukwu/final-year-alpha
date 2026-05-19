@@ -27,14 +27,14 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [parsedSkills, setParsedSkills] = useState<ParsedSkill[] | null>(null);
+  const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
       setError(null);
-      setParsedSkills(null);
+      setData(null);
     }
   }, []);
 
@@ -43,11 +43,11 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
     const fetchBaselineData = async () => {
       try {
         const response = await client.get('/api/user/profile');
-        if (isMounted && response.data?.current_skills_json?.skills) {
-          const skills: ParsedSkill[] = response.data.current_skills_json.skills;
-          skills.sort((a, b) => b.confidence - a.confidence);
-          setParsedSkills(skills);
-          onSkillsParsed(skills);
+        if (isMounted && response.data?.current_skills_json) {
+          setData(response.data);
+          if (response.data.current_skills_json.skills) {
+            onSkillsParsed(response.data.current_skills_json.skills);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch baseline resume data:", err);
@@ -83,13 +83,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // The NLP service returns: { skills: [{ name, confidence }] }
-      const skills: ParsedSkill[] = response.data.skills ?? [];
-
-      // Sort by confidence descending so the top skill is always first
-      skills.sort((a, b) => b.confidence - a.confidence);
-
-      setParsedSkills(skills);
+      setData({ current_skills_json: response.data });
+      const skills = response.data.skills ?? [];
       onSkillsParsed(skills);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -103,7 +98,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
     <div className="w-full max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          {parsedSkills ? 'Your Skill Profile' : 'Upload Your Resume'}
+          {data?.current_skills_json?.skills ? 'Your Skill Profile' : 'Upload Your Resume'}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           We'll analyze your current skills to build your personalized career pathway.
@@ -115,7 +110,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
           <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
           <p className="text-gray-500 dark:text-gray-400 font-medium">Loading your saved profile...</p>
         </div>
-      ) : !parsedSkills ? (
+      ) : !data || !data.current_skills_json || !data.current_skills_json.skills ? (
         <>
           <div
             {...getRootProps()}
@@ -136,7 +131,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
                 <UploadCloud className="w-12 h-12 text-gray-400" />
               )}
 
-              <div className="space-y-1">
+              <div>
                 {file ? (
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {file.name}
@@ -144,9 +139,9 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
                 ) : (
                   <>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                      <span className="text-blue-500 hover:text-blue-600">Click to upload</span> or drag and drop
+                      Drag & drop your resume here, or click to browse
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500 mt-1">
                       PDF or DOCX (MAX. 5MB)
                     </p>
                   </>
@@ -198,27 +193,27 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
               Extracted Skills
             </h4>
             <div className="flex flex-wrap gap-2">
-              {parsedSkills.map((skill, index) => (
+              {data.current_skills_json.skills.map((skillObj: any, index: number) => (
                 <div
                   key={index}
                   className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm flex items-center space-x-2"
                 >
-                  <span>{skill.name}</span>
+                  <span>{skillObj.name}</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                  <span className="text-xs text-gray-400">{(skill.confidence * 100).toFixed(0)}%</span>
+                  <span className="text-xs text-gray-400">{Math.round((skillObj.confidence || 0.95) * 100)}%</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <SkillRadar skills={parsedSkills} />
+          <SkillRadar data={data} />
 
           {/* Pass the top skill as start node for path generation */}
           <TargetSelectionForm onPathFound={onPathFound} startSkill={topSkill ?? 'Foundation'} />
 
           <div className="mt-8 flex justify-center">
             <button
-              onClick={() => setParsedSkills(null)}
+              onClick={() => setData(null)}
               className="text-sm text-gray-500 hover:text-blue-500 transition-colors underline"
             >
               Upload a different resume
