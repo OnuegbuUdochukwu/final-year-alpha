@@ -4,24 +4,15 @@ from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from extractor import DocumentExtractor
-from ner_model import NERModelManager
-from normalizer import SkillNormalizer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Initialize our components
-# NER inference is offloaded to Hugging Face Inference API (no local model)
-ner_manager = NERModelManager("dslim/bert-base-NER")
-normalizer = SkillNormalizer()
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager for FastAPI – configures the HF API client."""
-    logger.info("Initializing NLP Service (HF Inference API mode)...")
-    # Configure API headers (no heavy model loaded into memory)
-    ner_manager.load_model()
+    """Lifecycle manager for FastAPI."""
+    logger.info("Initializing NLP Service (Mistral LLM mode)...")
     yield
     logger.info("Shutting down NLP Service...")
 
