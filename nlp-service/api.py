@@ -93,7 +93,7 @@ async def parse_resume(file: UploadFile = File(...)):
     try:
         # Using requests synchronously (blocking) as in Graph Service
         resp = requests.post(
-            "https://api-inference.huggingface.co/v1/chat/completions",
+            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3/v1/chat/completions",
             json=payload,
             headers=headers,
             timeout=30
