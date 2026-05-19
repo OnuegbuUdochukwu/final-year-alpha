@@ -78,7 +78,7 @@ async def parse_resume(file: UploadFile = File(...)):
 
     try:
         response = client.chat.completions.create(
-            model="HuggingFaceH4/zephyr-7b-beta",
+            model="Qwen/Qwen2.5-7B-Instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
