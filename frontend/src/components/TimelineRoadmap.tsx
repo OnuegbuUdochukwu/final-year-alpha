@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flag,
   CheckCircle2,
-  Circle,
   Loader2,
   RefreshCw,
   ChevronDown,
@@ -39,6 +38,8 @@ interface TimelineRoadmapProps {
   pathData: PathData;
   /** True while App is fetching the recalculated path */
   isRecalculating?: boolean;
+  /** Called after a step is marked complete so App can re-fetch the path. */
+  onStepCompleted?: (completedSkill: string) => Promise<void> | void;
 }
 
 interface Milestone {
@@ -76,6 +77,7 @@ const itemVariants = {
 const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   pathData,
   isRecalculating = false,
+  onStepCompleted,
 }) => {
   const { userId } = useAuth();
   
@@ -132,6 +134,9 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
       });
 
       setCompletedSkills(prev => new Set(prev).add(skill.id));
+      if (onStepCompleted) {
+        onStepCompleted(skill.label);
+      }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setStepError(detail || `Failed to record completion of "${skill.label}".`);
