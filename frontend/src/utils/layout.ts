@@ -38,6 +38,9 @@ export function getLayoutedElements(
   edges: LayoutEdge[],
   direction: 'TB' | 'LR' = 'TB'
 ): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
+  const safeNodes = nodes || [];
+  const safeEdges = edges || [];
+
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -50,12 +53,12 @@ export function getLayoutedElements(
   });
 
   // Register nodes with dagre
-  nodes.forEach((node) => {
+  safeNodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
   // Register edges with dagre
-  edges.forEach((edge) => {
+  safeEdges.forEach((edge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
 
@@ -63,7 +66,7 @@ export function getLayoutedElements(
   dagre.layout(dagreGraph);
 
   // Map calculated positions back onto the nodes
-  const layoutedNodes = nodes.map((node) => {
+  const layoutedNodes = safeNodes.map((node) => {
     const dagreNode = dagreGraph.node(node.id);
 
     return {
@@ -77,7 +80,7 @@ export function getLayoutedElements(
   });
 
   // Style edges for smooth animated rendering
-  const layoutedEdges = edges.map((edge) => ({
+  const layoutedEdges = safeEdges.map((edge) => ({
     ...edge,
     type: 'smoothstep',
     animated: true,

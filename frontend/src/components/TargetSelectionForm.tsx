@@ -133,15 +133,18 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
     setError(null);
 
     try {
-      // Fetch the pre-built roadmap graph from Neo4j via the API Gateway.
+      // 1. Fetch data
       const response = await client.get('/api/generate', {
         params: { target_role: data.targetRole },
       });
 
-      const rawNodes = response.data.nodes || [];
-      const rawEdges = response.data.edges || [];
+      // 2. Extract payload safely
+      const payload = response.data || response;
 
-      if (rawNodes.length === 0) {
+      // 3. Log it
+      console.log("RAW API PAYLOAD:", payload);
+
+      if (!payload.nodes || payload.nodes.length === 0) {
         setError(`No roadmap data found for "${data.targetRole}". Try a different role.`);
         setNodes([]);
         setEdges([]);
@@ -149,13 +152,14 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
         return;
       }
 
-      // Apply dagre layout to compute positions
+      // 4. Safe Layout
       const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-        rawNodes,
-        rawEdges,
+        payload.nodes || [],
+        payload.edges || [],
         'TB'
       );
 
+      // 5. Update State
       setNodes(layoutedNodes as Node[]);
       setEdges(layoutedEdges as Edge[]);
       setGraphLoaded(true);
@@ -165,15 +169,23 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
         edgeCount: layoutedEdges.length,
       });
 
-      // Notify parent with the raw graph data (for downstream components)
-      onPathFound({ nodes: layoutedNodes, edges: layoutedEdges, target_role: data.targetRole });
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
+      // Notify parent with safe empty steps array to prevent downstream .reduce/.map crashes
+      onPathFound({ 
+        nodes: layoutedNodes, 
+        edges: layoutedEdges, 
+        target_role: data.targetRole,
+        target_skill: data.targetRole,
+        start_skill: startSkill,
+        steps: [] 
+      });
+    } catch (error: any) {
+      console.error("GRAPH RENDER ERROR:", error);
+      const detail = error.response?.data?.detail;
       setError(detail || 'Failed to generate roadmap. Please check the service is running.');
     } finally {
       setIsLoading(false);
     }
-  }, [onPathFound, setNodes, setEdges]);
+  }, [onPathFound, startSkill, setNodes, setEdges]);
 
   return (
     <>
@@ -336,7 +348,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       </div>
 
       {/* ── React Flow Canvas (appears after generation) ── */}
-      {graphLoaded && nodes.length > 0 && (
+      {graphLoaded && Array.isArray(nodes) && nodes.length > 0 && (
         <div className="w-full max-w-4xl mx-auto mt-6">
           {/* Canvas header bar */}
           <div style={{
