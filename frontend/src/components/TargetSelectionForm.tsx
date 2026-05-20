@@ -81,6 +81,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       // Notify parent with the raw nodes
       onPathFound({ 
         nodes: payload.nodes, 
+        edges: payload.edges || [],
         target_role: data.targetRole,
         target_skill: data.targetRole,
         start_skill: startSkill,

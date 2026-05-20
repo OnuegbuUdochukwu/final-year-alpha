@@ -7,6 +7,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+import {
   Flag,
   CheckCircle2,
   Circle,
@@ -14,9 +15,13 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  DollarSign,
+  Clock,
+  BookOpen
 } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { topologicalSort, SkillEdge } from '../utils/graph';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SkillNode {
@@ -28,6 +33,7 @@ interface PathData {
   target_role: string;
   start_skill?: string;
   nodes: SkillNode[];
+  edges: SkillEdge[];
 }
 
 interface TimelineRoadmapProps {
@@ -80,11 +86,15 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   const [loadingSkill, setLoadingSkill] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
-  // Safe fallback if nodes is undefined
+  // Safe fallback if nodes/edges is undefined
   const safeNodes = pathData.nodes || [];
+  const safeEdges = pathData.edges || [];
 
-  // Chunk nodes into milestones of 6 skills each
-  const milestones = useMemo(() => chunkNodes(safeNodes, 6), [safeNodes]);
+  // Topologically sort nodes before chunking
+  const sortedNodes = useMemo(() => topologicalSort(safeNodes, safeEdges), [safeNodes, safeEdges]);
+
+  // Chunk nodes into milestones of 5 skills each
+  const milestones = useMemo(() => chunkNodes(sortedNodes, 5), [sortedNodes]);
 
   const toggleMilestone = (id: number) => {
     setExpandedMilestones(prev => {
@@ -168,14 +178,26 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
           Target Role: <span className="font-semibold text-indigo-300 capitalize">{pathData.target_role.replace('-', ' ')}</span>
         </p>
 
-        <div className="flex flex-wrap gap-6">
+        <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
-            <span className="text-slate-400">Total Skills:</span>
-            <strong className="text-indigo-400 text-lg leading-none">{safeNodes.length}</strong>
+            <DollarSign className="w-4 h-4 text-green-400" />
+            <span className="text-slate-400">Est. Cost:</span>
+            <strong className="text-slate-200">$0 (Open Source)</strong>
           </div>
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-slate-400">Est. Time:</span>
+            <strong className="text-slate-200">{safeNodes.length * 5} hrs</strong>
+          </div>
+          <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
+            <BookOpen className="w-4 h-4 text-purple-400" />
+            <span className="text-slate-400">Steps:</span>
+            <strong className="text-slate-200">{safeNodes.length}</strong>
+          </div>
+          <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span className="text-slate-400">Completed:</span>
-            <strong className="text-emerald-400 text-lg leading-none">{completedSkills.size}</strong>
+            <strong className="text-emerald-400">{completedSkills.size}</strong>
           </div>
         </div>
       </motion.div>
