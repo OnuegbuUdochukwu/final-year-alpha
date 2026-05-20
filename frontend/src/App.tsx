@@ -170,8 +170,8 @@ function App() {
             token={token}
             cvSkills={parsedSkills.map(s => s.name)}
             targetRole={pathData?.target_skill ?? ''}
-            courses={(pathData?.steps ?? []).map((step: any) => ({
-              name: step.course,
+            courses={(pathData?.nodes ?? []).map((node: any) => ({
+              name: node.label,
               provider: '',
             }))}
             onClose={() => setShowResumeBuilder(false)}

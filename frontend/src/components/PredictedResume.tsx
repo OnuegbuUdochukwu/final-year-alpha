@@ -2,16 +2,17 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, Plus, Sparkles } from 'lucide-react';
 
-interface PathStep {
-  to_node: string;
-  course: string;
+interface SkillNode {
+  id: string;
+  label: string;
 }
 
 interface PredictedResumeProps {
   currentSkills: { name: string; confidence: number }[];
   pathData: {
     target_skill: string;
-    steps: PathStep[];
+    target_role?: string;
+    nodes: SkillNode[];
   };
 }
 
@@ -26,7 +27,8 @@ const chipVariants = {
 };
 
 const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathData }) => {
-  const newSkills = pathData.steps.map(s => s.to_node);
+  const safeNodes = pathData.nodes || [];
+  const newSkills = safeNodes.map(s => s.label);
 
   return (
     <motion.div
