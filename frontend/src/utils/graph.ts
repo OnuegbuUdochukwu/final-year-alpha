@@ -1,6 +1,9 @@
 export interface SkillNode {
   id: string;
-  label: string;
+  label?: string;
+  data?: {
+    label: string;
+  };
 }
 
 export interface SkillEdge {

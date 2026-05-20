@@ -24,7 +24,10 @@ import { topologicalSort, SkillEdge } from '../utils/graph';
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SkillNode {
   id: string;
-  label: string;
+  label?: string;
+  data?: {
+    label: string;
+  };
 }
 
 interface PathData {
@@ -128,18 +131,20 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
     setStepError(null);
 
     try {
+      const skillName = skill.data?.label || skill.label || "Unnamed Skill";
       await client.post('/api/complete-step', {
         user_id: userId ?? 'anonymous',
-        skill_name: skill.label,
+        skill_name: skillName,
       });
 
       setCompletedSkills(prev => new Set(prev).add(skill.id));
       if (onStepCompleted) {
-        onStepCompleted(skill.label);
+        onStepCompleted(skillName);
       }
     } catch (err: any) {
+      const skillName = skill.data?.label || skill.label || "Unnamed Skill";
       const detail = err.response?.data?.detail;
-      setStepError(detail || `Failed to record completion of "${skill.label}".`);
+      setStepError(detail || `Failed to record completion of "${skillName}".`);
     } finally {
       setLoadingSkill(null);
     }
@@ -305,7 +310,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                             <span className={`text-sm font-medium pt-0.5 transition-colors ${
                               isDone ? 'text-slate-500 line-through' : 'text-slate-300'
                             }`}>
-                              {skill.label}
+                              {skill.data?.label || skill.label || "Unnamed Skill"}
                             </span>
                           </label>
                         );
