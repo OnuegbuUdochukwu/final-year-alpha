@@ -7,7 +7,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-import {
   Flag,
   CheckCircle2,
   Circle,
