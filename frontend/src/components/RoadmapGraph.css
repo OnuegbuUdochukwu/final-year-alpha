@@ -1,0 +1,352 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RoadmapGraph.css — Dark-mode corporate styles for the React Flow canvas
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Container ────────────────────────────────────────────────────────────── */
+.roadmap-graph-container {
+  width: 100%;
+  max-width: 72rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.roadmap-graph-header {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  border: 1px solid #334155;
+  border-radius: 1rem;
+  padding: 1.75rem 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+}
+
+.roadmap-graph-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.375rem;
+}
+
+.roadmap-graph-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #818CF8;
+}
+
+.roadmap-graph-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #F1F5F9;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.roadmap-graph-subtitle {
+  font-size: 0.875rem;
+  color: #94A3B8;
+  margin: 0 0 1.25rem 0;
+}
+
+/* ── Controls (select + button row) ──────────────────────────────────────── */
+.roadmap-graph-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.roadmap-select-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.roadmap-select {
+  width: 100%;
+  padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #E2E8F0;
+  background-color: #0F172A;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.roadmap-select:hover {
+  border-color: #6366F1;
+}
+
+.roadmap-select:focus {
+  border-color: #818CF8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.roadmap-select option {
+  background: #0F172A;
+  color: #E2E8F0;
+}
+
+.roadmap-select-arrow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.75rem;
+  color: #94A3B8;
+}
+
+.roadmap-select-arrow-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.roadmap-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  white-space: nowrap;
+}
+
+.roadmap-generate-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #818CF8 0%, #6366F1 100%);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+
+.roadmap-generate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.roadmap-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.roadmap-btn-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* ── Error Banner ─────────────────────────────────────────────────────────── */
+.roadmap-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 0.625rem;
+  color: #FCA5A5;
+  font-size: 0.875rem;
+}
+
+.roadmap-error-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #F87171;
+  flex-shrink: 0;
+}
+
+/* ── Canvas Wrapper ───────────────────────────────────────────────────────── */
+.roadmap-canvas-wrapper {
+  border: 1px solid #1E293B;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.roadmap-canvas-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #0F172A;
+  border-bottom: 1px solid #1E293B;
+}
+
+.roadmap-canvas-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #C7D2FE;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 9999px;
+  text-transform: capitalize;
+}
+
+.roadmap-canvas-count {
+  font-size: 0.75rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.roadmap-canvas {
+  width: 100%;
+  height: 70vh;
+  background: #0F172A;
+}
+
+/* ── Empty State ──────────────────────────────────────────────────────────── */
+.roadmap-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  border: 2px dashed #1E293B;
+  border-radius: 1rem;
+  text-align: center;
+}
+
+.roadmap-empty-icon {
+  width: 3rem;
+  height: 3rem;
+  color: #334155;
+  margin-bottom: 1rem;
+}
+
+.roadmap-empty-text {
+  font-size: 0.875rem;
+  color: #64748B;
+  max-width: 24rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Custom Skill Node — Dark Corporate Aesthetic
+   ═══════════════════════════════════════════════════════════════════════════ */
+.skill-node {
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 0.625rem;
+  padding: 0.75rem 1.25rem;
+  min-width: 180px;
+  max-width: 260px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: grab;
+}
+
+.skill-node:hover {
+  border-color: #6366F1;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  transform: translateY(-1px);
+}
+
+.skill-node-label {
+  color: #E2E8F0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  word-break: break-word;
+  letter-spacing: 0.01em;
+}
+
+/* ── Handle Styling ───────────────────────────────────────────────────────── */
+.skill-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #6366F1 !important;
+  border: 2px solid #0F172A !important;
+  border-radius: 50% !important;
+}
+
+.skill-handle:hover {
+  background: #818CF8 !important;
+}
+
+/* ── React Flow Overrides ─────────────────────────────────────────────────── */
+.roadmap-canvas .react-flow__pane {
+  cursor: grab;
+}
+
+.roadmap-canvas .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.react-flow__edge-path {
+  stroke: #6366F1 !important;
+  stroke-width: 2 !important;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Controls & MiniMap Dark Theme ────────────────────────────────────────── */
+.roadmap-controls {
+  border: 1px solid #334155 !important;
+  background: #1E293B !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.roadmap-controls button {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+  border-bottom: 1px solid #334155 !important;
+  padding: 0.5rem !important;
+  transition: all 0.15s !important;
+}
+
+.roadmap-controls button:hover {
+  background: #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+.roadmap-controls button svg {
+  fill: currentColor !important;
+}
+
+.roadmap-minimap {
+  border: 1px solid #334155 !important;
+  border-radius: 0.5rem !important;
+  background: #0F172A !important;
+  overflow: hidden !important;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .roadmap-graph-controls {
+    flex-direction: column;
+  }
+
+  .roadmap-canvas {
+    height: 50vh;
+  }
+
+  .roadmap-graph-header {
+    padding: 1.25rem 1.5rem;
+  }
+}

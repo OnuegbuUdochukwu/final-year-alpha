@@ -18,6 +18,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useAuth } from './context/AuthContext';
 import LoginModal from './components/LoginModal';
 import ResumeUpload from './components/ResumeUpload';
+import RoadmapGraph from './components/RoadmapGraph';
 import TimelineRoadmap from './components/TimelineRoadmap';
 import PredictedResume from './components/PredictedResume';
 import ResumeBuilder from './components/ResumeBuilder';
@@ -103,7 +104,7 @@ function App() {
 
       {/* ── App shell ─────────────────────────────────────────────────────── */}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-6xl">
 
           {/* ── Header ── */}
           <div className="text-center mb-12 relative">
@@ -132,6 +133,9 @@ function App() {
             onSkillsParsed={handleSkillsParsed}
             topSkill={currentStart !== 'Foundation' ? currentStart : null}
           />
+
+          {/* ── Skill Roadmap Graph (React Flow + Dagre) ── */}
+          <RoadmapGraph />
 
           {/* Timeline + Predicted Resume + Resume Builder appear after a path is generated */}
           {pathData && (
