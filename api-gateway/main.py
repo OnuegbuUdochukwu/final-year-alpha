@@ -5,6 +5,8 @@ import logging
 import asyncio
 import httpx
 import psycopg2
+import re
+import json
 import jwt
 from datetime import datetime, timezone
 from collections import defaultdict
@@ -41,6 +43,12 @@ SUPABASE_PG_URL = os.getenv("SUPABASE_PG_URL", "")
 # Resume rate limiter config (max requests per minute per user)
 RESUME_RATE_LIMIT = int(os.getenv("RESUME_RATE_LIMIT_PER_MIN", "5"))
 _rate_limit_store: dict = defaultdict(list)  # {user_id: [timestamps]}
+
+# Hugging Face Inference API config (reused from graph-service pattern)
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+_HF_ROLE_VALIDATION_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+_HF_ROLE_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+_HF_API_BASE = "https://api-inference.huggingface.co/v1/chat/completions"
 
 # Jinja2 template environment — loads from api-gateway/templates/
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -93,6 +101,111 @@ def _ensure_user_skills_table(cur):
             UNIQUE(user_id, skill_name)
         );
     """)
+
+def _ensure_roles_table(cur):
+    """Idempotently creates the roles table and seeds it with baseline roles."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS roles (
+            id          BIGSERIAL PRIMARY KEY,
+            role_name   TEXT NOT NULL UNIQUE,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+    # Seed baseline roles (ON CONFLICT DO NOTHING keeps it idempotent)
+    _SEED_ROLES = [
+        'Frontend Developer', 'Backend Developer', 'DevOps Engineer',
+        'Full-Stack Developer', 'Data Analyst', 'Cyber Security Specialist',
+        'Android Developer',
+    ]
+    for role in _SEED_ROLES:
+        cur.execute(
+            "INSERT INTO roles (role_name) VALUES (%s) ON CONFLICT (role_name) DO NOTHING;",
+            (role,)
+        )
+
+
+def _validate_role_with_llm(query: str) -> str | None:
+    """
+    Calls the HuggingFace Inference API to verify if the query is a valid
+    software industry job role. Returns the standardized role name or None.
+    """
+    if not HF_TOKEN:
+        logger.warning("[RoleSearch] HF_TOKEN not set — skipping LLM validation.")
+        return None
+
+    system_prompt = (
+        'You are a job role validation API. Your ONLY output is a single valid JSON object.\n'
+        'Given a query, determine if it is a valid software/technology industry job role.\n'
+        'If it IS a valid role, return: {"role": "Standardized Role Name"}\n'
+        'If it is NOT a valid role, return: {"role": null}\n'
+        'Return ONLY the JSON object. No other text, no markdown, no explanation.'
+    )
+    user_message = f'Is "{query}" a valid software/technology industry job role?'
+
+    payload = {
+        "model": _HF_ROLE_VALIDATION_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "max_tokens": 100,
+        "temperature": 0.0,
+        "stream": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=25.0) as hf_client:
+            resp = hf_client.post(_HF_API_BASE, headers=headers, json=payload)
+
+        if resp.status_code >= 400:
+            logger.error(f"[RoleSearch] HF API returned HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        data = resp.json()
+        raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        logger.info(f"[RoleSearch] LLM raw response: {raw_text[:200]}")
+
+        # Extract JSON from response (handles markdown fences)
+        cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
+        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+        if not match:
+            return None
+
+        result = json.loads(match.group(0))
+        role_name = result.get("role")
+        if role_name and isinstance(role_name, str) and role_name.lower() != "null":
+            return role_name.strip()
+        return None
+
+    except httpx.TimeoutException:
+        logger.warning("[RoleSearch] HF API timed out during role validation.")
+        # Try fallback model
+        try:
+            payload["model"] = _HF_ROLE_FALLBACK_MODEL
+            with httpx.Client(timeout=25.0) as hf_client:
+                resp = hf_client.post(_HF_API_BASE, headers=headers, json=payload)
+            if resp.status_code >= 400:
+                return None
+            data = resp.json()
+            raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
+            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+            if not match:
+                return None
+            result = json.loads(match.group(0))
+            role_name = result.get("role")
+            if role_name and isinstance(role_name, str) and role_name.lower() != "null":
+                return role_name.strip()
+            return None
+        except Exception:
+            return None
+    except Exception as e:
+        logger.error(f"[RoleSearch] LLM validation error: {str(e)}")
+        return None
 
 # Expose Prometheus metrics at /metrics
 Instrumentator().instrument(app).expose(app)
@@ -323,6 +436,92 @@ async def get_user_profile(request: Request, user=Depends(verify_token)):
         logger.error(f"DB error fetching user profile: {str(e)}")
         # If the table doesn't exist yet in a fresh environment, fail gracefully
         return {"user_id": user_id, "current_skills_json": {}}
+
+# ─── Dynamic Role Search ─────────────────────────────────────────────────────
+@app.get("/api/search-roles")
+async def search_roles(query: str = "", _user=Depends(verify_token)):
+    """
+    Dynamic Role Search Hub.
+
+    1. Searches the Supabase `roles` table (ILIKE fuzzy match).
+    2. If no results, calls the HuggingFace LLM to validate the query as a job role.
+    3. If the LLM validates it, inserts it into `roles` for future lookups.
+    4. Always returns a consistent JSON array: [{"id": ..., "name": ...}]
+    """
+    query = query.strip()
+    if not query or len(query) < 2:
+        # Return all roles when query is too short
+        try:
+            conn = _get_pg_conn()
+            cur = conn.cursor()
+            _ensure_roles_table(cur)
+            conn.commit()
+            cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 10;")
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            return [{"id": str(row[0]), "name": row[1]} for row in rows]
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"[RoleSearch] DB error: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to search roles.")
+
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_roles_table(cur)
+        conn.commit()
+
+        # Step 1: Search Supabase
+        cur.execute(
+            "SELECT id, role_name FROM roles WHERE role_name ILIKE %s LIMIT 10;",
+            (f"%{query}%",)
+        )
+        rows = cur.fetchall()
+
+        if rows:
+            cur.close()
+            conn.close()
+            logger.info(f"[RoleSearch] Found {len(rows)} DB matches for '{query}'.")
+            return [{"id": str(row[0]), "name": row[1]} for row in rows]
+
+        # Step 2: No DB results — try LLM fallback
+        logger.info(f"[RoleSearch] No DB matches for '{query}'. Trying LLM validation...")
+        validated_name = _validate_role_with_llm(query)
+
+        if not validated_name:
+            cur.close()
+            conn.close()
+            logger.info(f"[RoleSearch] LLM rejected '{query}' as invalid role.")
+            return []
+
+        # Step 3: LLM validated — register the new role
+        logger.info(f"[RoleSearch] LLM validated '{query}' → '{validated_name}'. Registering...")
+        cur.execute(
+            "INSERT INTO roles (role_name) VALUES (%s) ON CONFLICT (role_name) DO NOTHING RETURNING id, role_name;",
+            (validated_name,)
+        )
+        new_row = cur.fetchone()
+        conn.commit()
+
+        if new_row:
+            result = [{"id": str(new_row[0]), "name": new_row[1]}]
+        else:
+            # ON CONFLICT — role was inserted by a concurrent request; fetch it
+            cur.execute("SELECT id, role_name FROM roles WHERE role_name = %s;", (validated_name,))
+            existing = cur.fetchone()
+            result = [{"id": str(existing[0]), "name": existing[1]}] if existing else []
+
+        cur.close()
+        conn.close()
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[RoleSearch] Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to search roles.")
 
 # ─── Resume Feature ──────────────────────────────────────────────────────────
 

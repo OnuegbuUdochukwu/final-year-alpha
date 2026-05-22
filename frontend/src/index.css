@@ -70,3 +70,37 @@
     }
   }
 }
+
+/* ─── Dynamic Role Search Combobox ────────────────────────────────────────── */
+.role-search-dropdown {
+  animation: roleDropdownSlideIn 0.15s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes roleDropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.role-search-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.role-search-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.role-search-dropdown::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 3px;
+}
+
+.role-search-dropdown::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.6);
+}
