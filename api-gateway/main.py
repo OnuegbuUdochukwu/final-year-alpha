@@ -337,6 +337,23 @@ async def proxy_generate_roadmap(request: Request, _user=Depends(verify_token)):
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
 
+@app.get("/api/generate-roadmap")
+async def proxy_generate_roadmap_jit(request: Request, _user=Depends(verify_token)):
+    """Proxy: GET /api/generate-roadmap?... → graph-service:8001/generate-roadmap"""
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.get(
+                f"{GRAPH_SERVICE_URL}/generate-roadmap",
+                params=dict(request.query_params)
+            )
+        try:
+            content = resp.json()
+        except ValueError:
+            content = {"detail": f"Graph Service returned non-JSON (HTTP {resp.status_code}): {resp.text[:200]}"}
+        return JSONResponse(status_code=resp.status_code, content=content)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
+
 @app.post("/api/complete-step")
 async def handle_complete_step(request: Request, user=Depends(verify_token)):
     """

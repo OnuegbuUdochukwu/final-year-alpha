@@ -30,12 +30,15 @@ interface TargetSelectionFormProps {
   onPathFound: (pathData: any) => void;
   /** The skill node to use as path start (e.g. top NLP skill or last completed skill). */
   startSkill?: string;
+  /** Skills extracted from the user's resume */
+  resumeSkills?: string[];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
   onPathFound,
   startSkill = 'Foundation',
+  resumeSkills = [],
 }) => {
   const {
     control,
@@ -182,8 +185,8 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
 
     try {
       // 1. Fetch data
-      const response = await client.get('/api/generate', {
-        params: { target_role: data.targetRole },
+      const response = await client.get('/api/generate-roadmap', {
+        params: { target_role: data.targetRole, skills: resumeSkills.join(', ') },
       });
 
       // 2. Extract payload safely
@@ -192,19 +195,16 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       // 3. Log it
       console.log("RAW API PAYLOAD:", payload);
 
-      if (!payload.nodes || payload.nodes.length === 0) {
+      if (!payload.milestones || payload.milestones.length === 0) {
         setError(`No roadmap data found for "${data.targetRole}". Try a different role.`);
         return;
       }
 
-      // Notify parent with the raw nodes
+      // Notify parent with the raw milestones
       onPathFound({
-        nodes: payload.nodes,
-        edges: payload.edges || [],
+        milestones: payload.milestones,
         target_role: data.targetRole,
-        target_skill: data.targetRole,
         start_skill: startSkill,
-        steps: []
       });
     } catch (error: any) {
       console.error("API RENDER ERROR:", error);
@@ -425,7 +425,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
             {isLoading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Generating Roadmap…</span>
+                <span>Generating Roadmap (AI is tailoring your path...)</span>
               </>
             ) : (
               <>

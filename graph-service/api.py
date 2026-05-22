@@ -6,9 +6,17 @@ import uvicorn
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 import os
+import httpx
+import re
+import json
 import psycopg2
 from dotenv import load_dotenv
 load_dotenv()
+
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+_HF_ROADMAP_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+_HF_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+_HF_API_BASE = "https://api-inference.huggingface.co/v1/chat/completions"
 
 # Import our custom mathematical engine
 from pathfinder import PathfinderGraphEngine
@@ -89,6 +97,17 @@ def _ensure_user_skills_table(cur):
             skill_name  TEXT NOT NULL,
             completed_at TIMESTAMPTZ DEFAULT NOW(),
             UNIQUE(user_id, skill_name)
+        );
+    """)
+
+def _ensure_roadmap_cache_table(cur):
+    """Idempotently creates the roadmap_cache table."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS roadmap_cache (
+            id          SERIAL PRIMARY KEY,
+            role_name   TEXT NOT NULL UNIQUE,
+            json_data   JSONB NOT NULL,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
         );
     """)
 
@@ -176,6 +195,120 @@ async def generate_roadmap(target_role: str = Query(..., description="The target
     except Exception as e:
         logger.error(f"Failed to fetch roadmap from Neo4j: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error while fetching roadmap.")
+
+
+@app.get("/generate-roadmap")
+async def generate_roadmap_jit(
+    target_role: str = Query(..., description="The target role to generate the roadmap for"),
+    skills: Optional[str] = Query("", description="Comma-separated list of user's current skills")
+):
+    """
+    Just-In-Time Roadmap Generator.
+    Cache-first system: checks Supabase roadmap_cache, if missing calls LLM, saves to cache, returns JSON.
+    """
+    # 1. Cache Check
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_roadmap_cache_table(cur)
+        conn.commit()
+
+        cur.execute("SELECT json_data FROM roadmap_cache WHERE role_name = %s", (target_role,))
+        row = cur.fetchone()
+        
+        if row:
+            cur.close()
+            conn.close()
+            logger.info(f"[JIT] Cache hit for role '{target_role}'")
+            return row[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[JIT] DB read error: {str(e)}")
+        # Don't fail completely yet, try to generate it anyway
+
+    # 2. LLM Generation
+    logger.info(f"[JIT] Cache miss for '{target_role}'. Calling LLM...")
+    if not HF_TOKEN:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured. Cannot generate JIT roadmap.")
+
+    system_prompt = (
+        'You are an expert career architect. '
+        f'The user is a professional with these existing skills: [{skills}]. '
+        f'They want to become a {target_role}. '
+        'Create an optimized learning path of 10-15 milestones. '
+        'Output valid JSON only. Schema: '
+        '{ "milestones": [{ "title": string, "description": string, "skills": [string], "resource": string, "project": string }] }.'
+    )
+    
+    payload = {
+        "model": _HF_ROADMAP_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Generate the milestone learning path for {target_role}."}
+        ],
+        "max_tokens": 1500,
+        "temperature": 0.2,
+        "stream": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    milestones_json = None
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(_HF_API_BASE, headers=headers, json=payload)
+            if resp.status_code >= 400:
+                logger.warning(f"[JIT] Primary model failed HTTP {resp.status_code}. Trying fallback.")
+                payload["model"] = _HF_FALLBACK_MODEL
+                resp = await client.post(_HF_API_BASE, headers=headers, json=payload)
+                if resp.status_code >= 400:
+                    raise Exception(f"HF API Error: {resp.text[:200]}")
+            
+            data = resp.json()
+            raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            
+            # Extract JSON
+            cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
+            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+            if not match:
+                raise ValueError("No JSON object found in LLM response")
+            
+            milestones_json = json.loads(match.group(0))
+            if "milestones" not in milestones_json:
+                raise ValueError("JSON missing 'milestones' array")
+
+    except Exception as e:
+        logger.error(f"[JIT] LLM generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate roadmap from AI provider.")
+
+    # 3. Persistence
+    try:
+        if cur.closed:
+            conn = _get_pg_conn()
+            cur = conn.cursor()
+        
+        cur.execute(
+            """
+            INSERT INTO roadmap_cache (role_name, json_data)
+            VALUES (%s, %s)
+            ON CONFLICT (role_name) DO UPDATE
+            SET json_data = EXCLUDED.json_data
+            """,
+            (target_role, json.dumps(milestones_json))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"[JIT] Successfully generated and cached roadmap for '{target_role}'")
+    except Exception as e:
+        logger.error(f"[JIT] DB write error: {str(e)}")
+        # Still return the generated json even if cache write fails
+        pass
+
+    return milestones_json
 
 
 # ─── Pathfinding ──────────────────────────────────────────────────────────────

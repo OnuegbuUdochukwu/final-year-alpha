@@ -19,22 +19,20 @@ import {
 } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { topologicalSort, SkillEdge } from '../utils/graph';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface SkillNode {
-  id: string;
-  label?: string;
-  data?: {
-    label: string;
-  };
+interface Milestone {
+  title: string;
+  description: string;
+  skills: string[];
+  resource: string;
+  project: string;
 }
 
 interface PathData {
   target_role: string;
   start_skill?: string;
-  nodes: SkillNode[];
-  edges: SkillEdge[];
+  milestones: Milestone[];
 }
 
 interface TimelineRoadmapProps {
@@ -43,26 +41,6 @@ interface TimelineRoadmapProps {
   isRecalculating?: boolean;
   /** Called after a step is marked complete so App can re-fetch the path. */
   onStepCompleted?: (completedSkill: string) => Promise<void> | void;
-}
-
-interface Milestone {
-  id: number;
-  title: string;
-  skills: SkillNode[];
-}
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
-/** Chunks a flat array of nodes into groups of `size`. */
-function chunkNodes(nodes: SkillNode[], size: number): Milestone[] {
-  const chunks: Milestone[] = [];
-  for (let i = 0; i < nodes.length; i += size) {
-    chunks.push({
-      id: i / size + 1,
-      title: `Milestone ${i / size + 1}`,
-      skills: nodes.slice(i, i + size),
-    });
-  }
-  return chunks;
 }
 
 // ─── Framer Motion variants ───────────────────────────────────────────────────
@@ -86,25 +64,14 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   
   // State for checklist
   const [completedSkills, setCompletedSkills] = useState<Set<string>>(new Set());
-  const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set([1])); // Expand first by default
-  const [loadingSkill, setLoadingSkill] = useState<string | null>(null);
-  const [stepError, setStepError] = useState<string | null>(null);
+  // Safe fallback if milestones is undefined
+  const milestones = pathData.milestones || [];
 
-  // Safe fallback if nodes/edges is undefined
-  const safeNodes = pathData.nodes || [];
-  const safeEdges = pathData.edges || [];
-
-  // Topologically sort nodes before chunking
-  const sortedNodes = useMemo(() => topologicalSort(safeNodes, safeEdges), [safeNodes, safeEdges]);
-
-  // Chunk nodes into milestones of 5 skills each
-  const milestones = useMemo(() => chunkNodes(sortedNodes, 5), [sortedNodes]);
-
-  const toggleMilestone = (id: number) => {
+  const toggleMilestone = (idx: number) => {
     setExpandedMilestones(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
       return next;
     });
   };
@@ -113,36 +80,34 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
    * Toggles a skill's completion status.
    * If checking it off, POST to backend to record completion.
    */
-  const handleToggleSkill = async (skill: SkillNode) => {
-    const isDone = completedSkills.has(skill.id);
+  const handleToggleSkill = async (skillName: string) => {
+    const isDone = completedSkills.has(skillName);
     
     if (isDone) {
       // Uncheck locally (optional: you might want an API route for unchecking)
       setCompletedSkills(prev => {
         const next = new Set(prev);
-        next.delete(skill.id);
+        next.delete(skillName);
         return next;
       });
       return;
     }
 
     // Check it off
-    setLoadingSkill(skill.id);
+    setLoadingSkill(skillName);
     setStepError(null);
 
     try {
-      const skillName = skill.data?.label || skill.label || "Unnamed Skill";
       await client.post('/api/complete-step', {
         user_id: userId ?? 'anonymous',
         skill_name: skillName,
       });
 
-      setCompletedSkills(prev => new Set(prev).add(skill.id));
+      setCompletedSkills(prev => new Set(prev).add(skillName));
       if (onStepCompleted) {
         onStepCompleted(skillName);
       }
     } catch (err: any) {
-      const skillName = skill.data?.label || skill.label || "Unnamed Skill";
       const detail = err.response?.data?.detail;
       setStepError(detail || `Failed to record completion of "${skillName}".`);
     } finally {
@@ -150,7 +115,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
     }
   };
 
-  if (safeNodes.length === 0) return null;
+  if (milestones.length === 0) return null;
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-8">
@@ -200,8 +165,8 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
           </div>
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <BookOpen className="w-4 h-4 text-purple-400" />
-            <span className="text-slate-400">Steps:</span>
-            <strong className="text-slate-200">{safeNodes.length}</strong>
+            <span className="text-slate-400">Milestones:</span>
+            <strong className="text-slate-200">{milestones.length}</strong>
           </div>
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -233,25 +198,25 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
         animate="visible"
         className="space-y-4"
       >
-        {milestones.map((milestone) => {
-          const isExpanded = expandedMilestones.has(milestone.id);
-          const completedInMilestone = milestone.skills.filter(s => completedSkills.has(s.id)).length;
-          const isMilestoneComplete = completedInMilestone === milestone.skills.length;
+        {milestones.map((milestone, idx) => {
+          const isExpanded = expandedMilestones.has(idx);
+          const completedInMilestone = milestone.skills.filter(s => completedSkills.has(s)).length;
+          const isMilestoneComplete = completedInMilestone === milestone.skills.length && milestone.skills.length > 0;
 
           return (
             <motion.div
-              key={milestone.id}
+              key={idx}
               variants={itemVariants}
               className={`bg-slate-800 border ${isMilestoneComplete ? 'border-emerald-500/30' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}
             >
               {/* Accordion Header */}
               <button
-                onClick={() => toggleMilestone(milestone.id)}
+                onClick={() => toggleMilestone(idx)}
                 className="w-full flex items-center justify-between p-4 bg-slate-800 hover:bg-slate-700/50 transition-colors focus:outline-none"
               >
                 <div className="flex items-center gap-3">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isMilestoneComplete ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
-                    {isMilestoneComplete ? <CheckCircle2 className="w-5 h-5" /> : milestone.id}
+                    {isMilestoneComplete ? <CheckCircle2 className="w-5 h-5" /> : idx + 1}
                   </div>
                   <div className="text-left">
                     <h3 className={`font-semibold ${isMilestoneComplete ? 'text-emerald-400' : 'text-slate-200'}`}>
@@ -267,7 +232,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                 </div>
               </button>
 
-              {/* Accordion Body (Skills List) */}
+              {/* Accordion Body */}
               <AnimatePresence initial={false}>
                 {isExpanded && (
                   <motion.div
@@ -277,44 +242,63 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                     transition={{ duration: 0.2 }}
                     className="border-t border-slate-700/50"
                   >
-                    <div className="p-2">
-                      {milestone.skills.map((skill) => {
-                        const isDone = completedSkills.has(skill.id);
-                        const isLoading = loadingSkill === skill.id;
+                    <div className="p-4 space-y-4">
+                      {/* Description & Metadata */}
+                      <div className="text-sm text-slate-300">
+                        <p className="mb-3">{milestone.description}</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-start gap-2 text-indigo-300">
+                            <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span><strong>Resource:</strong> {milestone.resource}</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-emerald-300">
+                            <Flag className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span><strong>Project:</strong> {milestone.project}</span>
+                          </div>
+                        </div>
+                      </div>
 
-                        return (
-                          <label
-                            key={skill.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${isDone ? 'hover:bg-slate-800/80' : 'hover:bg-slate-700/30'}`}
-                          >
-                            <div className="relative flex items-center justify-center mt-0.5">
-                              <input
-                                type="checkbox"
-                                checked={isDone}
-                                onChange={() => handleToggleSkill(skill)}
-                                disabled={isLoading}
-                                className="peer sr-only"
-                              />
-                              <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
-                                isDone 
-                                  ? 'bg-indigo-500 border-indigo-500 text-white' 
-                                  : 'bg-slate-900 border-2 border-slate-600 peer-hover:border-indigo-400'
-                              }`}>
-                                {isLoading ? (
-                                  <Loader2 className="w-3 h-3 animate-spin text-indigo-200" />
-                                ) : isDone ? (
-                                  <CheckCircle2 className="w-4 h-4" />
-                                ) : null}
+                      {/* Skills List */}
+                      <div className="pt-2 border-t border-slate-700/50">
+                        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to Master</h4>
+                        {milestone.skills.map((skillName) => {
+                          const isDone = completedSkills.has(skillName);
+                          const isLoading = loadingSkill === skillName;
+
+                          return (
+                            <label
+                              key={skillName}
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${isDone ? 'hover:bg-slate-800/80' : 'hover:bg-slate-700/30'}`}
+                            >
+                              <div className="relative flex items-center justify-center mt-0.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isDone}
+                                  onChange={() => handleToggleSkill(skillName)}
+                                  disabled={isLoading}
+                                  className="peer sr-only"
+                                />
+                                <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
+                                  isDone 
+                                    ? 'bg-indigo-500 border-indigo-500 text-white' 
+                                    : 'bg-slate-900 border-2 border-slate-600 peer-hover:border-indigo-400'
+                                }`}>
+                                  {isLoading ? (
+                                    <Loader2 className="w-3 h-3 animate-spin text-indigo-200" />
+                                  ) : isDone ? (
+                                    <CheckCircle2 className="w-4 h-4" />
+                                  ) : null}
+                                </div>
                               </div>
-                            </div>
-                            <span className={`text-sm font-medium pt-0.5 transition-colors ${
-                              isDone ? 'text-slate-500 line-through' : 'text-slate-300'
-                            }`}>
-                              {skill.data?.label || skill.label || "Unnamed Skill"}
-                            </span>
-                          </label>
-                        );
-                      })}
+                              <span className={`text-sm font-medium pt-0.5 transition-colors ${
+                                isDone ? 'text-slate-500 line-through' : 'text-slate-300'
+                              }`}>
+                                {skillName}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </motion.div>
                 )}

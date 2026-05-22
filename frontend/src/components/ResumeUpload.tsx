@@ -209,7 +209,11 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
           <SkillRadar data={data} />
 
           {/* Pass the top skill as start node for path generation */}
-          <TargetSelectionForm onPathFound={onPathFound} startSkill={topSkill ?? 'Foundation'} />
+          <TargetSelectionForm 
+            onPathFound={onPathFound} 
+            startSkill={topSkill ?? 'Foundation'} 
+            resumeSkills={data.current_skills_json?.skills?.map((s: any) => s.name) || []}
+          />
 
           <div className="mt-8 flex justify-center">
             <button
