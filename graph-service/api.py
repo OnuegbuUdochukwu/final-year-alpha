@@ -104,12 +104,17 @@ def _ensure_roadmap_cache_table(cur):
     """Idempotently creates the roadmap_cache table."""
     cur.execute("""
         CREATE TABLE IF NOT EXISTS roadmap_cache (
-            id          SERIAL PRIMARY KEY,
-            role_name   TEXT NOT NULL UNIQUE,
-            json_data   JSONB NOT NULL,
-            created_at  TIMESTAMPTZ DEFAULT NOW()
+            id                SERIAL PRIMARY KEY,
+            role_name         TEXT NOT NULL UNIQUE,
+            json_data         JSONB NOT NULL,
+            created_at        TIMESTAMPTZ DEFAULT NOW(),
+            generation_date   TIMESTAMPTZ DEFAULT NOW(),
+            user_contributed  BOOLEAN DEFAULT FALSE
         );
     """)
+    # Ensure columns exist if table was already created
+    cur.execute("ALTER TABLE roadmap_cache ADD COLUMN IF NOT EXISTS generation_date TIMESTAMPTZ DEFAULT NOW();")
+    cur.execute("ALTER TABLE roadmap_cache ADD COLUMN IF NOT EXISTS user_contributed BOOLEAN DEFAULT FALSE;")
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -284,10 +289,12 @@ async def generate_roadmap_jit(
         
         cur.execute(
             """
-            INSERT INTO roadmap_cache (role_name, json_data)
-            VALUES (%s, %s)
+            INSERT INTO roadmap_cache (role_name, json_data, user_contributed)
+            VALUES (%s, %s, TRUE)
             ON CONFLICT (role_name) DO UPDATE
-            SET json_data = EXCLUDED.json_data
+            SET json_data = EXCLUDED.json_data,
+                generation_date = NOW(),
+                user_contributed = TRUE
             """,
             (target_role, json.dumps(milestones_json))
         )

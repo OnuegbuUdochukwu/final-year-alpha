@@ -50,12 +50,16 @@ def _ensure_roadmap_cache_table(cur):
     """Idempotently creates the roadmap_cache table."""
     cur.execute("""
         CREATE TABLE IF NOT EXISTS roadmap_cache (
-            id SERIAL PRIMARY KEY,
-            role_name TEXT NOT NULL UNIQUE,
-            json_data JSONB NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW()
+            id                SERIAL PRIMARY KEY,
+            role_name         TEXT NOT NULL UNIQUE,
+            json_data         JSONB NOT NULL,
+            created_at        TIMESTAMPTZ DEFAULT NOW(),
+            generation_date   TIMESTAMPTZ DEFAULT NOW(),
+            user_contributed  BOOLEAN DEFAULT FALSE
         );
     """)
+    cur.execute("ALTER TABLE roadmap_cache ADD COLUMN IF NOT EXISTS generation_date TIMESTAMPTZ DEFAULT NOW();")
+    cur.execute("ALTER TABLE roadmap_cache ADD COLUMN IF NOT EXISTS user_contributed BOOLEAN DEFAULT FALSE;")
 
 def extract_json(raw_text: str) -> dict:
     """Extracts JSON from an LLM string."""

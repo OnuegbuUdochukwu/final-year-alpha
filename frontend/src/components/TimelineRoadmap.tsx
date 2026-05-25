@@ -15,7 +15,8 @@ import {
   ChevronUp,
   DollarSign,
   Clock,
-  BookOpen
+  BookOpen,
+  AlertTriangle
 } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +75,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   // State for checklist
   const [completedSkills, setCompletedSkills] = React.useState<Set<string>>(new Set(knownSkills));
   const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set());
+  const [flaggedMilestones, setFlaggedMilestones] = useState<Set<string>>(new Set());
   const [loadingSkill, setLoadingSkill] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
@@ -96,6 +98,26 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
       else next.add(idx);
       return next;
     });
+  };
+
+  /**
+   * Submits feedback flagging a milestone as irrelevant.
+   */
+  const handleFlagMilestone = async (milestoneTitle: string) => {
+    if (flaggedMilestones.has(milestoneTitle)) return;
+    
+    try {
+      await client.post('/api/feedback/flag-milestone', {
+        role_name: pathData.target_role,
+        milestone_title: milestoneTitle,
+        comment: "User flagged as irrelevant"
+      });
+      setFlaggedMilestones(prev => new Set(prev).add(milestoneTitle));
+    } catch (err: any) {
+      console.error("Failed to flag milestone:", err);
+      const detail = err.response?.data?.detail;
+      setStepError(detail || `Failed to flag "${milestoneTitle}".`);
+    }
   };
 
   /**
@@ -249,7 +271,18 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                     </p>
                   </div>
                 </div>
-                <div className="text-slate-500">
+                <div className="text-slate-500 flex items-center gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFlagMilestone(milestone.title);
+                    }}
+                    disabled={flaggedMilestones.has(milestone.title)}
+                    className={`p-1.5 rounded-lg transition-colors ${flaggedMilestones.has(milestone.title) ? 'text-red-400 bg-red-400/10 cursor-not-allowed' : 'hover:bg-slate-700 hover:text-red-400'}`}
+                    title="Flag as irrelevant"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                  </button>
                   {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </div>
               </button>

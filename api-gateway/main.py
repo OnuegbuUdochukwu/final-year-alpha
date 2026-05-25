@@ -123,6 +123,19 @@ def _ensure_roles_table(cur):
             (role,)
         )
 
+def _ensure_milestone_feedback_table(cur):
+    """Idempotently creates the milestone_feedback table."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS milestone_feedback (
+            id SERIAL PRIMARY KEY,
+            role_name TEXT NOT NULL,
+            milestone_title TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            comment TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+
 
 def _validate_role_with_llm(query: str) -> str | None:
     """
@@ -315,6 +328,80 @@ async def proxy_generate_roadmap_jit(request: Request, _user=Depends(verify_toke
         return JSONResponse(status_code=resp.status_code, content=content)
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Bad Gateway: Could not reach Graph Service. {str(e)}")
+
+class FlagMilestoneRequest(BaseModel):
+    role_name: str
+    milestone_title: str
+    comment: Optional[str] = ""
+
+@app.post("/api/feedback/flag-milestone")
+async def flag_milestone(payload: FlagMilestoneRequest, request: Request, user=Depends(verify_token)):
+    """Stores user feedback indicating a generated milestone is irrelevant."""
+    user_id = user.get("sub", "anonymous")
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        _ensure_milestone_feedback_table(cur)
+        
+        cur.execute(
+            """
+            INSERT INTO milestone_feedback (role_name, milestone_title, user_id, comment)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (payload.role_name, payload.milestone_title, user_id, payload.comment)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"status": "success", "message": "Feedback recorded."}
+    except Exception as e:
+        logger.error(f"Failed to record milestone feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to record feedback.")
+
+@app.get("/api/health")
+async def health_check():
+    """Aggregate health check for deployment readiness."""
+    health_status = {
+        "status": "ok",
+        "supabase": "unknown",
+        "neo4j_proxy": "unknown",
+        "llm": "unknown"
+    }
+    
+    # Check Supabase
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        health_status["supabase"] = "ok"
+    except Exception as e:
+        health_status["supabase"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check Graph Service / Neo4j Proxy
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{GRAPH_SERVICE_URL}/skills/canonical")
+            if resp.status_code == 200:
+                health_status["neo4j_proxy"] = "ok"
+            else:
+                health_status["neo4j_proxy"] = f"error: HTTP {resp.status_code}"
+                health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["neo4j_proxy"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+        
+    # Check LLM Connection (HuggingFace token present)
+    if HF_TOKEN:
+        health_status["llm"] = "configured"
+    else:
+        health_status["llm"] = "missing_token"
+        health_status["status"] = "degraded"
+
+    return health_status
 
 @app.post("/api/complete-step")
 async def handle_complete_step(request: Request, user=Depends(verify_token)):
