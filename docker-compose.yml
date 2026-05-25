@@ -27,7 +27,7 @@ services:
   nlp-service:
     build:
       context: .
-      dockerfile: ./nlp-service/Dockerfile
+      dockerfile: ./Dockerfile.nlp
     container_name: fyp_nlp
     ports:
       - "8000:8000"
@@ -44,7 +44,7 @@ services:
   graph-service:
     build:
       context: .
-      dockerfile: ./graph-service/Dockerfile
+      dockerfile: ./Dockerfile.graph
     container_name: fyp_graph
     ports:
       - "8001:8001"
@@ -83,7 +83,7 @@ services:
   api-gateway:
     build:
       context: .
-      dockerfile: ./api-gateway/Dockerfile
+      dockerfile: ./Dockerfile.gateway
     container_name: fyp_gateway
     ports:
       - "8080:8080"

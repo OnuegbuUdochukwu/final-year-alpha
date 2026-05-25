@@ -3,8 +3,7 @@ services:
   - type: web
     name: fyp-nlp
     runtime: docker
-    rootDir: nlp-service
-    dockerfilePath: Dockerfile
+    dockerfilePath: nlp-service/Dockerfile
     dockerContext: .
     plan: free
     envVars:
@@ -15,8 +14,7 @@ services:
   - type: web
     name: fyp-graph
     runtime: docker
-    rootDir: graph-service
-    dockerfilePath: Dockerfile
+    dockerfilePath: graph-service/Dockerfile
     dockerContext: .
     plan: free
     envVars:
@@ -27,8 +25,7 @@ services:
   - type: web
     name: fyp-gateway
     runtime: docker
-    rootDir: api-gateway
-    dockerfilePath: Dockerfile
+    dockerfilePath: api-gateway/Dockerfile
     dockerContext: .
     plan: free
     envVars:
