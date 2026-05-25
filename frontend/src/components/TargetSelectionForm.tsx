@@ -204,27 +204,40 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
     }
 
     try {
-      // 1. Fetch data
-      const response = await client.get('/api/generate-roadmap', {
+      // 1. Fetch high-level LLM roadmap milestones
+      const roadmapResponse = await client.get('/api/generate-roadmap', {
         params: { target_role: data.targetRole, skills: resumeSkills.join(', ') },
       });
+      const roadmapPayload = roadmapResponse.data || roadmapResponse;
 
-      // 2. Extract payload safely
-      const payload = response.data || response;
-
-      // 3. Log it
-      console.log("RAW API PAYLOAD:", payload);
-
-      if (!payload.milestones || payload.milestones.length === 0) {
+      if (!roadmapPayload.milestones || roadmapPayload.milestones.length === 0) {
         setError(`No roadmap data found for "${data.targetRole}". Try a different role.`);
         return;
       }
 
-      // Notify parent with the raw milestones
+      // 2. Fetch A* Path Nodes & Optimize (Gap Analysis)
+      let pathNodes = [];
+      try {
+        const pathResponse = await client.get('/api/find-path', {
+          params: { 
+            target: data.targetRole, 
+            start: startSkill,
+            known_skills: resumeSkills.join(',') 
+          },
+        });
+        const pathPayload = pathResponse.data || pathResponse;
+        pathNodes = pathPayload.path_nodes || [];
+      } catch (pathErr) {
+        console.warn("Gap Analysis / Pathfinder failed, falling back to basic roadmap.", pathErr);
+      }
+
+      // 3. Notify parent with merged data
       onPathFound({
-        milestones: payload.milestones,
+        milestones: roadmapPayload.milestones,
         target_role: data.targetRole,
         start_skill: startSkill,
+        nodes: pathNodes,
+        knownSkills: resumeSkills
       });
     } catch (error: any) {
       console.error("API RENDER ERROR:", error);

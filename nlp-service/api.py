@@ -110,6 +110,45 @@ async def parse_resume(file: UploadFile = File(...)):
         parsed_data["skills"] = formatted_skills
         parsed_data["filename"] = file.filename
         
+        # 4. Resume Normalization Layer
+        logger.info("Normalizing extracted skills against canonical Graph vocabulary...")
+        try:
+            import requests
+            graph_url = os.getenv("GRAPH_SERVICE_URL", "http://graph-service:8001")
+            resp = requests.get(f"{graph_url}/skills/canonical", timeout=5.0)
+            if resp.status_code == 200:
+                canonical_skills = resp.json()
+                raw_skill_names = [s["name"] for s in formatted_skills]
+                
+                normalization_prompt = (
+                    "You are a skill normalization engine. Map these raw resume skills to the closest standardized skill names from our graph database.\n"
+                    f"Graph Database Skills: {canonical_skills}\n"
+                    "Return ONLY a JSON array of strings containing the matched standard names. Example: [\"Python\", \"HTML & CSS\"]. "
+                    "If a skill doesn't match anything closely, omit it."
+                )
+                
+                normalized_text = query_llm(
+                    system_prompt=normalization_prompt,
+                    user_prompt=f"Raw resume skills: {raw_skill_names}",
+                    max_tokens=500,
+                    temperature=0.0
+                )
+                
+                clean_norm = re.sub(r"```(?:json)?", "", normalized_text, flags=re.IGNORECASE).strip()
+                norm_match = re.search(r"\[.*\]", clean_norm, re.DOTALL)
+                if norm_match:
+                    normalized_names = json.loads(norm_match.group(0))
+                    parsed_data["normalized_skills"] = normalized_names
+                    logger.info(f"Normalized {len(raw_skill_names)} raw skills to {len(normalized_names)} canonical skills.")
+                else:
+                    parsed_data["normalized_skills"] = []
+            else:
+                logger.warning(f"Failed to fetch canonical skills from Graph Service: HTTP {resp.status_code}")
+                parsed_data["normalized_skills"] = []
+        except Exception as norm_err:
+            logger.error(f"Error during skill normalization: {norm_err}")
+            parsed_data["normalized_skills"] = []
+            
     except Exception as e:
         logger.error(f"Failed to parse LLM response JSON: {e}. Raw content: {content}")
         raise HTTPException(status_code=500, detail="Failed to parse structured resume data.")

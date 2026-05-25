@@ -144,6 +144,15 @@ async def debug_neo4j():
         "graph_nodes": engine.G.number_of_nodes() if engine else 0
     }
 
+@app.get("/skills/canonical")
+async def get_canonical_skills():
+    """Returns a list of all canonical skill names from the memory graph for NLP normalization."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Graph Engine not initialized.")
+    skills = [data.get("name") for _, data in engine.G.nodes(data=True) if data.get("name")]
+    return list(set(skills))
+
+
 
 # ─── Roadmap Generation ───────────────────────────────────────────────────────
 @app.get("/generate")
@@ -300,10 +309,12 @@ async def get_optimal_path(
     target: str = Query(..., description="The name of the target skill to reach (e.g., 'Machine Learning')"),
     start: Optional[str] = Query("Foundation", description="The starting skill node (default: 'Foundation')"),
     max_budget: Optional[float] = Query(None, description="Maximum total cost in dollars"),
-    max_hours: Optional[float] = Query(None, description="Maximum total time in hours")
+    max_hours: Optional[float] = Query(None, description="Maximum total time in hours"),
+    known_skills: Optional[str] = Query("", description="Comma-separated list of user's normalized skills")
 ):
     """
     Executes the A* pathfinding algorithm to find the optimal connected route,
+    filters out mastered skills via Cypher Gap Analysis, 
     then uses Linear Programming to prune the path to fit inside budget/time constraints.
     """
     if engine is None or engine.G.number_of_nodes() == 0:
@@ -329,7 +340,22 @@ async def get_optimal_path(
             if 'hours' not in step:
                 step['hours'] = 10.0
 
-        # 2. Optimize the path with Linear Programming
+        # 2. Gap Analysis Filtering
+        user_skills_list = [s.strip() for s in known_skills.split(',') if s.strip()] if known_skills else []
+        if user_skills_list:
+            gaps = engine.get_gap_analysis(target, user_skills_list)
+            missing_skill_names = {gap["skill_name"] for gap in gaps}
+            missing_skill_names.add(target) # Ensure target is always considered a valid destination
+            
+            filtered_steps = []
+            for step in raw_steps:
+                if step["to_node"] in missing_skill_names:
+                    filtered_steps.append(step)
+                else:
+                    logger.info(f"Gap Analysis: Bypassing mastered skill '{step['to_node']}'.")
+            raw_steps = filtered_steps
+
+        # 3. Optimize the path with Linear Programming
         optimized_steps = optimizer.optimize_path(raw_steps, max_budget=max_budget, max_hours=max_hours)
 
         # Recalculate node path and total cost based on optimized steps

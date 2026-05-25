@@ -138,6 +138,27 @@ class PathfinderGraphEngine:
             logger.warning(f"No valid path exists between '{start_skill_name}' and '{target_skill_name}'.")
             return None
 
+    def get_gap_analysis(self, target_role: str, user_skills: list[str]) -> list[dict]:
+        """
+        Executes a Cypher query to identify missing required skills for a target role,
+        effectively bypassing skills the user has already mastered.
+        """
+        query = """
+        MATCH (role:Skill {name: $target_role})<-[:REQUIRES*]-(skill:Skill)
+        WHERE NOT skill.name IN $user_skills
+        RETURN DISTINCT skill.name as skill_name, skill.node_type as category
+        """
+        
+        logger.info(f"Running Gap Analysis for '{target_role}' with known skills: {user_skills}")
+        try:
+            with self.neo_driver.session(database=self.neo4j_database) as session:
+                result = session.run(query, target_role=target_role, user_skills=user_skills)
+                gaps = [{"skill_name": record["skill_name"], "category": record["category"]} for record in result]
+                return gaps
+        except Exception as e:
+            logger.error(f"Failed to execute gap analysis Cypher query: {e}")
+            return []
+
 if __name__ == "__main__":
     engine = PathfinderGraphEngine()
     engine.build_networkx_graph()

@@ -142,6 +142,7 @@ function App() {
                 pathData={pathData}
                 onStepCompleted={handleStepCompleted}
                 isRecalculating={isRecalculating}
+                knownSkills={pathData.knownSkills}
               />
               <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
 

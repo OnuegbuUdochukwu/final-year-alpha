@@ -212,7 +212,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
           <TargetSelectionForm 
             onPathFound={onPathFound} 
             startSkill={topSkill ?? 'Foundation'} 
-            resumeSkills={data.current_skills_json?.skills?.map((s: any) => s.name) || []}
+            resumeSkills={data.current_skills_json?.normalized_skills || []}
           />
 
           <div className="mt-8 flex justify-center">

@@ -47,6 +47,8 @@ interface TimelineRoadmapProps {
   isRecalculating?: boolean;
   /** Called after a step is marked complete so App can re-fetch the path. */
   onStepCompleted?: (completedSkill: string) => Promise<void> | void;
+  /** Skills already mastered by the user (from gap analysis/resume). */
+  knownSkills?: string[];
 }
 
 // ─── Framer Motion variants ───────────────────────────────────────────────────
@@ -65,14 +67,22 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   pathData,
   isRecalculating = false,
   onStepCompleted,
+  knownSkills = [],
 }) => {
   const { userId } = useAuth();
   
   // State for checklist
-  const [completedSkills, setCompletedSkills] = useState<Set<string>>(new Set());
+  const [completedSkills, setCompletedSkills] = React.useState<Set<string>>(new Set(knownSkills));
   const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set());
   const [loadingSkill, setLoadingSkill] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
+
+  // Keep completedSkills in sync if knownSkills prop updates
+  React.useEffect(() => {
+    if (knownSkills.length > 0) {
+      setCompletedSkills(prev => new Set([...prev, ...knownSkills]));
+    }
+  }, [knownSkills]);
 
   // Safe fallback if milestones is undefined
   const milestones = pathData.milestones || [];
@@ -173,7 +183,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className="text-slate-400">Est. Time:</span>
-            <strong className="text-slate-200">{safeNodes.length * 5} hrs</strong>
+            <strong className="text-slate-200">{Math.max(0, safeNodes.length - completedSkills.size) * 5} hrs</strong>
           </div>
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <BookOpen className="w-4 h-4 text-purple-400" />
