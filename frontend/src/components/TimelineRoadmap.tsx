@@ -4,7 +4,7 @@
  * Renders a checklist of chunked skills.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flag,
@@ -29,10 +29,16 @@ interface Milestone {
   project: string;
 }
 
+interface SkillNode {
+  id: string;
+  label: string;
+}
+
 interface PathData {
   target_role: string;
   start_skill?: string;
   milestones: Milestone[];
+  nodes?: SkillNode[];
 }
 
 interface TimelineRoadmapProps {
@@ -64,8 +70,14 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   
   // State for checklist
   const [completedSkills, setCompletedSkills] = useState<Set<string>>(new Set());
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set());
+  const [loadingSkill, setLoadingSkill] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
+
   // Safe fallback if milestones is undefined
   const milestones = pathData.milestones || [];
+  // Safe fallback for nodes
+  const safeNodes = pathData.nodes || [];
 
   const toggleMilestone = (idx: number) => {
     setExpandedMilestones(prev => {
