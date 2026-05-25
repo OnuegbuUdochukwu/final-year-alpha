@@ -232,6 +232,10 @@ async def generate_roadmap_jit(
     if not HF_TOKEN:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured. Cannot generate JIT roadmap.")
 
+    import re
+    import json
+    from shared.llm_service import query_llm
+    
     system_prompt = (
         'You are an expert career architect. '
         f'The user is a professional with these existing skills: [{skills}]. '
@@ -240,45 +244,24 @@ async def generate_roadmap_jit(
         'Output valid JSON only. Schema: '
         '{ "milestones": [{ "title": string, "description": string, "skills": [string], "resource": string, "project": string }] }.'
     )
-    
-    payload = {
-        "model": _HF_ROADMAP_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Generate the milestone learning path for {target_role}."}
-        ],
-        "max_tokens": 1500,
-        "temperature": 0.2,
-        "stream": False,
-    }
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json",
-    }
 
-    milestones_json = None
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(_HF_API_BASE, headers=headers, json=payload)
-            if resp.status_code >= 400:
-                logger.warning(f"[JIT] Primary model failed HTTP {resp.status_code}. Trying fallback.")
-                payload["model"] = _HF_FALLBACK_MODEL
-                resp = await client.post(_HF_API_BASE, headers=headers, json=payload)
-                if resp.status_code >= 400:
-                    raise Exception(f"HF API Error: {resp.text[:200]}")
-            
-            data = resp.json()
-            raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
-            # Extract JSON
-            cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
-            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
-            if not match:
-                raise ValueError("No JSON object found in LLM response")
-            
-            milestones_json = json.loads(match.group(0))
-            if "milestones" not in milestones_json:
-                raise ValueError("JSON missing 'milestones' array")
+        raw_text = query_llm(
+            system_prompt=system_prompt,
+            user_prompt=f"Generate the milestone learning path for {target_role}.",
+            max_tokens=1500,
+            temperature=0.2
+        )
+        
+        # Extract JSON
+        cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
+        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON object found in LLM response")
+        
+        milestones_json = json.loads(match.group(0))
+        if "milestones" not in milestones_json:
+            raise ValueError("JSON missing 'milestones' array")
 
     except Exception as e:
         logger.error(f"[JIT] LLM generation failed: {str(e)}")
