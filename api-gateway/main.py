@@ -142,31 +142,15 @@ def _validate_role_with_llm(query: str) -> str | None:
     )
     user_message = f'Is "{query}" a valid software/technology industry job role?'
 
-    payload = {
-        "model": _HF_ROLE_VALIDATION_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        "max_tokens": 100,
-        "temperature": 0.0,
-        "stream": False,
-    }
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
     try:
-        with httpx.Client(timeout=25.0) as hf_client:
-            resp = hf_client.post(_HF_API_BASE, headers=headers, json=payload)
-
-        if resp.status_code >= 400:
-            logger.error(f"[RoleSearch] HF API returned HTTP {resp.status_code}: {resp.text[:200]}")
-            return None
-
-        data = resp.json()
-        raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        from shared.llm_service import query_llm
+        
+        raw_text = query_llm(
+            system_prompt=system_prompt,
+            user_prompt=user_message,
+            max_tokens=100,
+            temperature=0.0
+        )
         logger.info(f"[RoleSearch] LLM raw response: {raw_text[:200]}")
 
         # Extract JSON from response (handles markdown fences)
@@ -181,28 +165,6 @@ def _validate_role_with_llm(query: str) -> str | None:
             return role_name.strip()
         return None
 
-    except httpx.TimeoutException:
-        logger.warning("[RoleSearch] HF API timed out during role validation.")
-        # Try fallback model
-        try:
-            payload["model"] = _HF_ROLE_FALLBACK_MODEL
-            with httpx.Client(timeout=25.0) as hf_client:
-                resp = hf_client.post(_HF_API_BASE, headers=headers, json=payload)
-            if resp.status_code >= 400:
-                return None
-            data = resp.json()
-            raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
-            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
-            if not match:
-                return None
-            result = json.loads(match.group(0))
-            role_name = result.get("role")
-            if role_name and isinstance(role_name, str) and role_name.lower() != "null":
-                return role_name.strip()
-            return None
-        except Exception:
-            return None
     except Exception as e:
         logger.error(f"[RoleSearch] LLM validation error: {str(e)}")
         return None

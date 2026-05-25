@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI."""
-    logger.info("Initializing NLP Service (Mistral LLM mode)...")
+    logger.info("Initializing NLP Service...")
+    from shared.llm_service import test_llm_connection
+    test_llm_connection()
     yield
     logger.info("Shutting down NLP Service...")
 
@@ -55,18 +57,10 @@ async def parse_resume(file: UploadFile = File(...)):
     if not raw_text:
         raise HTTPException(status_code=415, detail="Could not extract text or unsupported format.")
 
-    # 2. Extract structured data via Hugging Face Serverless Inference API (Mistral-7B)
-    import os
+    # 2. Extract structured data via Hugging Face Serverless Inference API
     import re
     import json
-    from huggingface_hub import InferenceClient
-
-    hf_token = os.getenv("HF_TOKEN", "")
-    if not hf_token:
-        logger.error("HF_TOKEN is not set.")
-        raise HTTPException(status_code=500, detail="Inference API token is missing.")
-
-    client = InferenceClient(api_key=hf_token)
+    from shared.llm_service import query_llm
 
     # Limit text length to avoid API token/context limits
     truncated_text = raw_text[:4000] if len(raw_text) > 4000 else raw_text
@@ -77,18 +71,13 @@ async def parse_resume(file: UploadFile = File(...)):
     )
 
     try:
-        response = client.chat.completions.create(
+        content = query_llm(
+            system_prompt=system_prompt,
+            user_prompt=f"Extract resume details from this text:\n\n{truncated_text}",
             model="Qwen/Qwen2.5-7B-Instruct",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Extract resume details from this text:\n\n{truncated_text}"}
-            ],
             max_tokens=1000,
-            temperature=0.1,
+            temperature=0.1
         )
-        
-        content = response.choices[0].message.content
-            
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
         raise HTTPException(status_code=502, detail=f"Bad Gateway to Hugging Face Inference API: {str(e)}")

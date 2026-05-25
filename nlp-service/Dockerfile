@@ -3,11 +3,12 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy and install Python dependencies (lightweight – no ML libs)
-COPY requirements.txt .
+COPY ./nlp-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
-COPY . .
+COPY ./nlp-service .
+COPY ./shared ./shared
 
 EXPOSE 8000
 

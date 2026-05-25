@@ -26,8 +26,8 @@ services:
   # ─── NLP Service ──────────────────────────────────────────────────────────
   nlp-service:
     build:
-      context: ./nlp-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./nlp-service/Dockerfile
     container_name: fyp_nlp
     ports:
       - "8000:8000"
@@ -43,8 +43,8 @@ services:
   # ─── Graph / Pathfinder Service ───────────────────────────────────────────
   graph-service:
     build:
-      context: ./graph-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./graph-service/Dockerfile
     container_name: fyp_graph
     ports:
       - "8001:8001"
@@ -82,8 +82,8 @@ services:
   # ─── API Gateway (JWT Auth) ───────────────────────────────────────────────
   api-gateway:
     build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
     container_name: fyp_gateway
     ports:
       - "8080:8080"

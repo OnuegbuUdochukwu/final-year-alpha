@@ -74,33 +74,33 @@ def generate_subgraph(target_role: str) -> dict:
     Raises:
         JITGenerationError — on API failure, timeout, or malformed/invalid JSON.
     """
-    hf_token = os.getenv("HF_TOKEN", "")
-    if not hf_token:
-        raise JITGenerationError("HF_TOKEN environment variable is not set.")
-
+    from shared.llm_service import query_llm
+    
     model = os.getenv("JIT_MODEL", _PRIMARY_MODEL)
     user_message = f'Generate a learning path subgraph for the role: "{target_role}"'
 
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system",  "content": _SYSTEM_PROMPT},
-            {"role": "user",    "content": user_message},
-        ],
-        "max_tokens": 1200,
-        "temperature": 0.1,
-        "stream": False
-    }
-    headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json",
-    }
-
-    url = _HF_API_BASE
     logger.info(f"[JIT] Calling HF API: model={model}, target='{target_role}'")
 
-    # ── Try primary model, fall back once on timeout ──────────────────────────
-    raw_text = _call_hf_api(url, headers, payload, model)
+    try:
+        raw_text = query_llm(
+            system_prompt=_SYSTEM_PROMPT,
+            user_prompt=user_message,
+            model=model,
+            max_tokens=1200,
+            temperature=0.1
+        )
+    except Exception as e:
+        logger.warning(f"[JIT] Primary model '{model}' failed: {e}. Trying fallback...")
+        try:
+            raw_text = query_llm(
+                system_prompt=_SYSTEM_PROMPT,
+                user_prompt=user_message,
+                model=_FALLBACK_MODEL,
+                max_tokens=1200,
+                temperature=0.1
+            )
+        except Exception as fallback_e:
+            raise JITGenerationError(f"Both primary and fallback HF models failed. Error: {fallback_e}") from fallback_e
 
     # ── Extract JSON from response (handles prose-wrapped JSON) ──────────────
     subgraph = _extract_and_validate_json(raw_text, target_role)
@@ -109,7 +109,6 @@ def generate_subgraph(target_role: str) -> dict:
         f"{len(subgraph['edges'])} edges for '{target_role}'"
     )
     return subgraph
-
 
 def inject_into_neo4j(subgraph: dict, engine) -> None:
     """
@@ -210,61 +209,7 @@ def hot_patch_networkx(engine) -> None:
         raise JITGenerationError(f"NetworkX hot-patch failed: {str(e)}") from e
 
 
-# ─── Private helpers ──────────────────────────────────────────────────────────
-
-def _call_hf_api(url: str, headers: dict, payload: dict, model: str) -> str:
-    """
-    Makes the HTTP request to the HF Inference API.
-    On timeout with the primary model, retries once with the fallback model.
-
-    Returns the raw text content of the assistant's message.
-    Raises JITGenerationError on non-recoverable failure.
-    """
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=_TIMEOUT_SEC)
-    except requests.Timeout:
-        logger.warning(f"[JIT] Primary model '{model}' timed out. Trying fallback...")
-        # One retry with fallback model
-        fallback_url = _HF_API_BASE
-        payload["model"] = _FALLBACK_MODEL
-        try:
-            resp = requests.post(
-                fallback_url, headers=headers, json=payload, timeout=_TIMEOUT_SEC
-            )
-        except requests.Timeout:
-            raise JITGenerationError(
-                f"Both primary ('{model}') and fallback ('{_FALLBACK_MODEL}') "
-                f"HF models timed out after {_TIMEOUT_SEC}s. "
-                "The HF free tier may be experiencing a cold start. Please retry in ~30s."
-            )
-    except requests.RequestException as e:
-        raise JITGenerationError(f"HF API network error: {str(e)}") from e
-
-    if resp.status_code == 503:
-        raise JITGenerationError(
-            "HF model is loading (503). This is a free-tier cold start. "
-            "Please retry in ~20-30 seconds."
-        )
-    if not resp.ok:
-        raise JITGenerationError(
-            f"HF API returned HTTP {resp.status_code}: {resp.text[:200]}"
-        )
-
-    try:
-        data = resp.json()
-        if "choices" in data and len(data["choices"]) > 0:
-            return data["choices"][0]["message"]["content"]
-        elif isinstance(data, dict) and "error" in data:
-            raise JITGenerationError(f"HF API Error: {data['error']}")
-        else:
-            return str(data)
-    except (KeyError, IndexError, ValueError) as e:
-        raise JITGenerationError(
-            f"Unexpected HF API response shape: {resp.text[:300]}"
-        ) from e
-
-
-def _extract_and_validate_json(raw_text: str, target_role: str) -> dict:
+# ─── Private helpers ──────────────────────────────────────────────────────────def _extract_and_validate_json(raw_text: str, target_role: str) -> dict:
     """
     Extracts the first JSON object from the LLM's response text (handles cases
     where the model wraps the JSON in prose or markdown fences) and validates

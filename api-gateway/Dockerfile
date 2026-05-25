@@ -13,10 +13,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY ./api-gateway/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY ./api-gateway .
+COPY ./shared ./shared
 
 EXPOSE 8080
 
