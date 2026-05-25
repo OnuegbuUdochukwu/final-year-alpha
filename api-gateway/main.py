@@ -86,9 +86,16 @@ app.add_middleware(
 # ─── PostgreSQL Helpers (user state) ─────────────────────────────────────────
 def _get_pg_conn():
     """Returns an open psycopg2 connection or raises HTTP 503."""
-    if not SUPABASE_PG_URL:
-        raise HTTPException(status_code=503, detail="Database not configured (SUPABASE_PG_URL missing).")
-    return psycopg2.connect(SUPABASE_PG_URL)
+    pg_url = os.getenv("SUPABASE_PG_URL", "")
+    if not pg_url:
+        raise HTTPException(status_code=503, detail="Database not configured.")
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(pg_url).hostname
+        print(f"Connected to Database: {host}", flush=True)
+    except Exception:
+        pass
+    return psycopg2.connect(pg_url)
 
 def _ensure_user_skills_table(cur):
     """Idempotently creates the user_skills table if it does not exist."""

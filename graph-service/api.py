@@ -86,6 +86,12 @@ def _get_pg_conn():
     pg_url = os.getenv("SUPABASE_PG_URL", "")
     if not pg_url:
         raise HTTPException(status_code=503, detail="Database not configured.")
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(pg_url).hostname
+        print(f"Connected to Database: {host}", flush=True)
+    except Exception:
+        pass
     return psycopg2.connect(pg_url)
 
 def _ensure_user_skills_table(cur):
@@ -283,9 +289,8 @@ async def generate_roadmap_jit(
 
     # 3. Persistence
     try:
-        if cur.closed:
-            conn = _get_pg_conn()
-            cur = conn.cursor()
+        conn = _get_pg_conn()
+        cur = conn.cursor()
         
         cur.execute(
             """
@@ -310,6 +315,16 @@ async def generate_roadmap_jit(
     return milestones_json
 
 
+ROLE_TO_SKILL_MAP = {
+    "Backend Developer": "Backend Mastery",
+    "Frontend Developer": "Frontend Mastery",
+    "Data Scientist": "Data Science Mastery",
+    "Machine Learning Engineer": "Machine Learning",
+    "Full Stack Developer": "Full Stack Mastery",
+    "DevOps Engineer": "DevOps Mastery",
+    "Cloud Architect": "Cloud Architecture",
+}
+
 # ─── Pathfinding ──────────────────────────────────────────────────────────────
 @app.get("/find-path", response_model=PathResponse)
 async def get_optimal_path(
@@ -329,9 +344,25 @@ async def get_optimal_path(
 
     logger.info(f"API Request: Find path from '{start}' to '{target}' (Budget: {max_budget}, Hours: {max_hours})")
 
+    # 1. Role-to-Skill Mapping
+    mapped_target = ROLE_TO_SKILL_MAP.get(target, target)
+    
+    # 2. Normalization via LLM
+    from shared.llm_service import query_llm
+    canonical_skills = [data.get("name") for _, data in engine.G.nodes(data=True) if data.get("name")]
+    if mapped_target not in canonical_skills:
+        logger.info(f"Normalizing '{mapped_target}' via LLM...")
+        try:
+            prompt = f"Match this skill name '{mapped_target}' to exactly one from this list: {canonical_skills}. Return ONLY the exact match string, nothing else. If none match, return 'UNKNOWN'."
+            normalized = query_llm(user_prompt=prompt, system_prompt="You are an exact string matcher.", max_tokens=50).strip()
+            if normalized in canonical_skills:
+                mapped_target = normalized
+        except Exception as e:
+            logger.error(f"Failed to normalize target: {e}")
+
     try:
-        # 1. Get raw A* path
-        route = engine.find_optimal_path(start, target)
+        # 3. Get raw A* path
+        route = engine.find_optimal_path(start, mapped_target)
 
         if route is None:
             raise HTTPException(
@@ -347,12 +378,12 @@ async def get_optimal_path(
             if 'hours' not in step:
                 step['hours'] = 10.0
 
-        # 2. Gap Analysis Filtering
+        # 4. Gap Analysis Filtering
         user_skills_list = [s.strip() for s in known_skills.split(',') if s.strip()] if known_skills else []
         if user_skills_list:
-            gaps = engine.get_gap_analysis(target, user_skills_list)
+            gaps = engine.get_gap_analysis(mapped_target, user_skills_list)
             missing_skill_names = {gap["skill_name"] for gap in gaps}
-            missing_skill_names.add(target) # Ensure target is always considered a valid destination
+            missing_skill_names.add(mapped_target) # Ensure target is always considered a valid destination
             
             filtered_steps = []
             for step in raw_steps:
