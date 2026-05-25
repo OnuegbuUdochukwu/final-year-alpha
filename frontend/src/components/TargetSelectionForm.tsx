@@ -63,10 +63,16 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<RoleOption | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isCustomSelection, setIsCustomSelection] = useState(false);
 
   const comboboxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Whether we should show the "AI Discovery" custom option
+  const showCustomOption = !isSearching && searchResults.length === 0 && searchQuery.trim().length >= 3;
+  // Total items in the dropdown (real results + possibly the custom option)
+  const totalDropdownItems = searchResults.length + (showCustomOption ? 1 : 0);
 
   // ─── Debounced Search ────────────────────────────────────────────────────
   const searchRoles = useCallback(async (query: string) => {
@@ -96,6 +102,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
   const handleInputChange = useCallback((value: string) => {
     setSearchQuery(value);
     setSelectedRole(null);
+    setIsCustomSelection(false);
     setValue('targetRole', '');
 
     if (debounceRef.current) {
@@ -108,8 +115,9 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
   }, [searchRoles, setValue]);
 
   // ─── Selection Handler ───────────────────────────────────────────────────
-  const handleSelectRole = useCallback((role: RoleOption) => {
+  const handleSelectRole = useCallback((role: RoleOption, isCustom: boolean = false) => {
     setSelectedRole(role);
+    setIsCustomSelection(isCustom);
     setSearchQuery(role.name);
     setValue('targetRole', role.name);
     setIsOpen(false);
@@ -117,10 +125,19 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
     setHighlightedIndex(-1);
   }, [setValue]);
 
+  // ─── Custom Role Selection (AI Discovery) ─────────────────────────────
+  const handleSelectCustomRole = useCallback(() => {
+    const customRole: RoleOption = {
+      id: 'custom',
+      name: searchQuery.trim(),
+    };
+    handleSelectRole(customRole, true);
+  }, [searchQuery, handleSelectRole]);
+
   // ─── Keyboard Navigation ─────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!isOpen) {
-      if (e.key === 'ArrowDown' && searchResults.length > 0) {
+      if (e.key === 'ArrowDown' && totalDropdownItems > 0) {
         setIsOpen(true);
         setHighlightedIndex(0);
         e.preventDefault();
@@ -132,19 +149,22 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex(prev =>
-          prev < searchResults.length - 1 ? prev + 1 : 0
+          prev < totalDropdownItems - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setHighlightedIndex(prev =>
-          prev > 0 ? prev - 1 : searchResults.length - 1
+          prev > 0 ? prev - 1 : totalDropdownItems - 1
         );
         break;
       case 'Enter':
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < searchResults.length) {
           handleSelectRole(searchResults[highlightedIndex]);
+        } else if (showCustomOption && highlightedIndex === searchResults.length) {
+          // The custom option is the last item (after all real results)
+          handleSelectCustomRole();
         }
         break;
       case 'Escape':
@@ -152,7 +172,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
         setHighlightedIndex(-1);
         break;
     }
-  }, [isOpen, searchResults, highlightedIndex, handleSelectRole]);
+  }, [isOpen, searchResults, totalDropdownItems, highlightedIndex, handleSelectRole, handleSelectCustomRole, showCustomOption]);
 
   // ─── Click Outside ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -269,7 +289,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
               />
               {selectedRole && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <Sparkles className={`w-4 h-4 ${isCustomSelection ? 'text-violet-500' : 'text-amber-500'}`} />
                 </div>
               )}
             </div>
@@ -312,12 +332,40 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
                     <p className="text-sm text-gray-500 dark:text-gray-400">Searching roles...</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">AI is validating new roles</p>
                   </div>
-                ) : (
+                ) : showCustomOption ? (
+                  /* ─── AI Discovery: Custom Role Option ──────────────────── */
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={highlightedIndex === 0}
+                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors cursor-pointer rounded-lg ${
+                      highlightedIndex === 0
+                        ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-violet-50/50 dark:hover:bg-violet-900/20'
+                    }`}
+                    onClick={handleSelectCustomRole}
+                    onMouseEnter={() => setHighlightedIndex(0)}
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">
+                        Search for: "{searchQuery.trim()}"
+                      </p>
+                      <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">
+                        AI Discovery — our model will validate & learn this role
+                      </p>
+                    </div>
+                    {highlightedIndex === 0 && (
+                      <span className="flex-shrink-0 text-xs text-violet-500 dark:text-violet-400 font-medium">↵ Select</span>
+                    )}
+                  </button>
+                ) : searchQuery.trim().length > 0 ? (
                   <div className="px-4 py-4 text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No roles found for "{searchQuery}"</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try a different search term</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Type at least 3 characters to search</p>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
