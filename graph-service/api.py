@@ -117,6 +117,16 @@ def _ensure_user_skills_table(cur):
         );
     """)
 
+def _ensure_roles_table(cur):
+    """Idempotently creates the roles table if it does not exist."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS roles (
+            id          BIGSERIAL PRIMARY KEY,
+            role_name   TEXT NOT NULL UNIQUE,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+
 def _ensure_roadmap_cache_table(cur):
     """Idempotently creates the roadmap_cache table."""
     cur.execute("""
@@ -173,6 +183,39 @@ async def get_canonical_skills():
         raise HTTPException(status_code=503, detail="Graph Engine not initialized.")
     skills = [data.get("name") for _, data in engine.G.nodes(data=True) if data.get("name")]
     return list(set(skills))
+
+# ─── Dynamic Role Search (Restored) ───────────────────────────────────────────
+@app.get("/search")
+async def search_roles(query: str = ""):
+    """
+    Search the roles table. Returns [] on failure to prevent frontend crash.
+    """
+    logger.info("New route definition: /search active")
+    try:
+        query = query.strip()
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+        
+        _ensure_roles_table(cur)
+        conn.commit()
+        
+        if not query or len(query) < 2:
+            cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 10;")
+        else:
+            cur.execute(
+                "SELECT id, role_name FROM roles WHERE role_name ILIKE %s LIMIT 10;",
+                (f"%{query}%",)
+            )
+            
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return [{"id": str(row[0]), "name": row[1]} for row in rows]
+    except Exception as e:
+        logger.error(f"[RoleSearch] Error in /search route: {str(e)}")
+        return []
+
 
 
 
