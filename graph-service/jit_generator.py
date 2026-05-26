@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-_PRIMARY_MODEL  = "mistralai/Mistral-7B-Instruct-v0.3"
-_FALLBACK_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-_HF_API_BASE    = "https://api-inference.huggingface.co/v1/chat/completions"
-_TIMEOUT_SEC    = 30   # raised from 25s to handle cold starts on HF free tier
+_PRIMARY_MODEL  = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_FALLBACK_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_HF_API_URL     = "https://router.huggingface.co/v1/chat/completions"
+_TIMEOUT_SEC    = 60   # Mixtral-8x7B may need more time on serverless cold starts
 
 # Normalisation ceiling: edge weight = time_hours / _WEIGHT_CEILING
 # Seeded courses top out at ~80h (weight ≈ 0.27); 300h ceiling keeps JIT in the same band.
@@ -31,7 +31,8 @@ _WEIGHT_CEILING = 300.0
 
 # ─── System prompt ────────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are a curriculum design API. Your ONLY output is a single valid JSON object.
+# System prompt for subgraph generation (used by generate_subgraph / find-path JIT)
+_SUBGRAPH_SYSTEM_PROMPT = """You are a curriculum design API. Your ONLY output is a single valid JSON object.
 Do NOT output markdown, code fences, explanations, or any text outside the JSON object.
 
 Generate a learning path subgraph for the given target job role.
@@ -55,11 +56,65 @@ Rules:
 
 Return ONLY the JSON object. No other text."""
 
+# System prompt for milestone roadmap generation (used by generate-roadmap JIT)
+_ROADMAP_SYSTEM_PROMPT = (
+    "You are a senior technical career architect. Your job is to define "
+    "structured, chronological learning roadmaps for technical roles. "
+    "You MUST return ONLY a valid JSON array of objects. Each object must "
+    "have a 'milestone_name', 'description', and a 'skills' array."
+)
+
 # ─── Custom exception ─────────────────────────────────────────────────────────
 
 class JITGenerationError(Exception):
     """Raised when the JIT pipeline fails at any stage."""
     pass
+
+# ─── Internal: direct HTTP call to HF router ─────────────────────────────────
+
+def _call_hf_chat(system_prompt: str, user_prompt: str, model: str, max_tokens: int = 1500) -> str:
+    """
+    Calls the Hugging Face Serverless API via the router chat completions
+    endpoint using requests (no transformers/torch dependency).
+
+    Returns the raw assistant message text.
+    Raises JITGenerationError on failure.
+    """
+    hf_token = os.environ.get("HF_TOKEN", "")
+    if not hf_token:
+        raise JITGenerationError("HF_TOKEN environment variable is missing.")
+
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "max_tokens": max_tokens,
+    }
+
+    logger.info(f"[JIT] POST {_HF_API_URL} | model={model}, prompt_len={len(user_prompt)}")
+
+    try:
+        resp = requests.post(_HF_API_URL, headers=headers, json=payload, timeout=_TIMEOUT_SEC)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise JITGenerationError(f"HF API request failed: {e}") from e
+
+    data = resp.json()
+
+    # OpenAI-compatible response: {"choices": [{"message": {"content": "..."}}]}
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise JITGenerationError(
+            f"Unexpected HF API response shape: {str(data)[:300]}"
+        ) from e
+
 
 # ─── Public functions ─────────────────────────────────────────────────────────
 
@@ -74,32 +129,28 @@ def generate_subgraph(target_role: str) -> dict:
     Raises:
         JITGenerationError — on API failure, timeout, or malformed/invalid JSON.
     """
-    from shared.llm_service import query_llm
-    
     model = os.getenv("JIT_MODEL", _PRIMARY_MODEL)
     user_message = f'Generate a learning path subgraph for the role: "{target_role}"'
 
     logger.info(f"[JIT] Calling HF API: model={model}, target='{target_role}'")
 
     try:
-        raw_text = query_llm(
-            system_prompt=_SYSTEM_PROMPT,
+        raw_text = _call_hf_chat(
+            system_prompt=_SUBGRAPH_SYSTEM_PROMPT,
             user_prompt=user_message,
             model=model,
-            max_tokens=1200,
-            temperature=0.1
+            max_tokens=1500,
         )
-    except Exception as e:
+    except JITGenerationError as e:
         logger.warning(f"[JIT] Primary model '{model}' failed: {e}. Trying fallback...")
         try:
-            raw_text = query_llm(
-                system_prompt=_SYSTEM_PROMPT,
+            raw_text = _call_hf_chat(
+                system_prompt=_SUBGRAPH_SYSTEM_PROMPT,
                 user_prompt=user_message,
                 model=_FALLBACK_MODEL,
-                max_tokens=1200,
-                temperature=0.1
+                max_tokens=1500,
             )
-        except Exception as fallback_e:
+        except JITGenerationError as fallback_e:
             raise JITGenerationError(f"Both primary and fallback HF models failed. Error: {fallback_e}") from fallback_e
 
     # ── Extract JSON from response (handles prose-wrapped JSON) ──────────────
@@ -109,6 +160,52 @@ def generate_subgraph(target_role: str) -> dict:
         f"{len(subgraph['edges'])} edges for '{target_role}'"
     )
     return subgraph
+
+
+def generate_roadmap_milestones(target_role: str, user_skills: str = "") -> list:
+    """
+    Generates a structured milestone-based roadmap for the given target_role
+    using Mixtral-8x7B via the HF router chat completions endpoint.
+
+    Returns a list of milestone dicts, each containing:
+        {"milestone_name": str, "description": str, "skills": [str]}
+
+    Raises:
+        JITGenerationError — on API failure or malformed JSON.
+    """
+    model = os.getenv("JIT_MODEL", _PRIMARY_MODEL)
+    user_prompt = f"Generate a learning roadmap for a {target_role}. Return only JSON."
+
+    logger.info(f"[JIT-Roadmap] Generating milestones for '{target_role}' with model={model}")
+
+    try:
+        raw_text = _call_hf_chat(
+            system_prompt=_ROADMAP_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            model=model,
+            max_tokens=1500,
+        )
+    except JITGenerationError as e:
+        raise JITGenerationError(f"Roadmap generation failed for '{target_role}': {e}") from e
+
+    # The system prompt asks for a JSON array of milestone objects
+    from shared.llm_service import parse_json_from_llm
+    try:
+        milestones = parse_json_from_llm(raw_text, expect_array=True)
+    except ValueError:
+        # Fallback: the model may have wrapped the array inside {"milestones": [...]}
+        try:
+            wrapper = parse_json_from_llm(raw_text, expect_array=False)
+            milestones = wrapper.get("milestones", [])
+            if not milestones:
+                raise ValueError("No 'milestones' key found in wrapper object.")
+        except ValueError as e:
+            raise JITGenerationError(
+                f"Could not parse roadmap JSON: {e}. Raw: {raw_text[:300]}"
+            ) from e
+
+    logger.info(f"[JIT-Roadmap] Generated {len(milestones)} milestones for '{target_role}'")
+    return milestones
 
 def inject_into_neo4j(subgraph: dict, engine) -> None:
     """

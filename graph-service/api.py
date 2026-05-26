@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
-_HF_ROADMAP_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-_HF_FALLBACK_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-_HF_API_BASE = "https://api-inference.huggingface.co/v1/chat/completions"
+_HF_ROADMAP_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_HF_FALLBACK_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_HF_API_BASE = "https://router.huggingface.co/v1/chat/completions"
 
 # Import our custom mathematical engine
 from pathfinder import PathfinderGraphEngine
@@ -289,43 +289,17 @@ async def generate_roadmap_jit(
         logger.error(f"[JIT] DB read error: {str(e)}")
         # Don't fail completely yet, try to generate it anyway
 
-    # 2. LLM Generation
+    # 2. LLM Generation via Mixtral-8x7B (delegated to jit_generator)
     logger.info(f"[JIT] Cache miss for '{target_role}'. Calling LLM...")
     if not HF_TOKEN:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured. Cannot generate JIT roadmap.")
 
-    import re
-    import json
-    from shared.llm_service import query_llm
-    
-    system_prompt = (
-        'You are an expert career architect. '
-        f'The user is a professional with these existing skills: [{skills}]. '
-        f'They want to become a {target_role}. '
-        'Create an optimized learning path of 10-15 milestones. '
-        'Output valid JSON only. Schema: '
-        '{ "milestones": [{ "title": string, "description": string, "skills": [string], "resource": string, "project": string }] }.'
-    )
+    from jit_generator import generate_roadmap_milestones, JITGenerationError
 
     try:
-        raw_text = query_llm(
-            system_prompt=system_prompt,
-            user_prompt=f"Generate the milestone learning path for {target_role}.",
-            max_tokens=1500,
-            temperature=0.2
-        )
-        
-        # Extract JSON
-        cleaned = re.sub(r'```(?:json)?', '', raw_text, flags=re.IGNORECASE).strip()
-        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
-        if not match:
-            raise ValueError("No JSON object found in LLM response")
-        
-        milestones_json = json.loads(match.group(0))
-        if "milestones" not in milestones_json:
-            raise ValueError("JSON missing 'milestones' array")
-
-    except Exception as e:
+        milestones = generate_roadmap_milestones(target_role, user_skills=skills)
+        milestones_json = {"milestones": milestones}
+    except JITGenerationError as e:
         logger.error(f"[JIT] LLM generation failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate roadmap from AI provider.")
 
@@ -333,7 +307,7 @@ async def generate_roadmap_jit(
     try:
         conn = _get_pg_conn()
         cur = conn.cursor()
-        
+
         cur.execute(
             """
             INSERT INTO roadmap_cache (role_name, json_data, user_contributed)
