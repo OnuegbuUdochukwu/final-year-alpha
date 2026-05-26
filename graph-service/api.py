@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
-_HF_ROADMAP_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-_HF_FALLBACK_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_HF_ROADMAP_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+_HF_FALLBACK_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 _HF_API_BASE = "https://router.huggingface.co/v1/chat/completions"
 
 # Import our custom mathematical engine

@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-_PRIMARY_MODEL  = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-_FALLBACK_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+_PRIMARY_MODEL  = "HuggingFaceH4/zephyr-7b-beta"
+_FALLBACK_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 _HF_API_URL     = "https://router.huggingface.co/v1/chat/completions"
-_TIMEOUT_SEC    = 60   # Mixtral-8x7B may need more time on serverless cold starts
+_TIMEOUT_SEC    = 60   # generous timeout for serverless cold starts
 
 # Normalisation ceiling: edge weight = time_hours / _WEIGHT_CEILING
 # Seeded courses top out at ~80h (weight ≈ 0.27); 300h ceiling keeps JIT in the same band.
@@ -165,7 +165,7 @@ def generate_subgraph(target_role: str) -> dict:
 def generate_roadmap_milestones(target_role: str, user_skills: str = "") -> list:
     """
     Generates a structured milestone-based roadmap for the given target_role
-    using Mixtral-8x7B via the HF router chat completions endpoint.
+    using Zephyr-7B via the HF router chat completions endpoint.
 
     Returns a list of milestone dicts, each containing:
         {"milestone_name": str, "description": str, "skills": [str]}
