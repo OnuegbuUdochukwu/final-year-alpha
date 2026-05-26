@@ -58,6 +58,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
 
   // ─── Combobox State ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<RoleOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -76,30 +77,35 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
 
   // ─── Debounced Search ────────────────────────────────────────────────────
   const searchRoles = useCallback(async (query: string) => {
-    if (query.trim().length < 1) {
+    if (query.trim().length < 3) {
       setSearchResults([]);
       setIsOpen(false);
+      setSearchError(null);
       return;
     }
 
     setIsSearching(true);
+    setSearchError(null);
     try {
       const response = await client.get('/api/search-roles', {
         params: { query: query.trim() },
       });
       const results: RoleOption[] = response.data || [];
       setSearchResults(results);
-      setIsOpen(results.length > 0 || query.trim().length >= 2);
+      setIsOpen(results.length > 0 || query.trim().length >= 3);
       setHighlightedIndex(-1);
     } catch (err) {
       console.error('[RoleSearch] Search failed:', err);
       setSearchResults([]);
+      setSearchError("Server unreachable");
+      setIsOpen(true);
     } finally {
       setIsSearching(false);
     }
   }, []);
 
   const handleInputChange = useCallback((value: string) => {
+    console.log("onChange:", value, "length:", value.length);
     setSearchQuery(value);
     setSelectedRole(null);
     setIsCustomSelection(false);
@@ -314,7 +320,12 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
                 role="listbox"
                 id="role-search-listbox"
               >
-                {searchResults.length > 0 ? (
+                {searchError ? (
+                  <div className="px-4 py-4 text-center">
+                    <AlertCircle className="w-5 h-5 text-red-500 mx-auto mb-1" />
+                    <p className="text-sm text-red-500 dark:text-red-400 font-medium">{searchError}</p>
+                  </div>
+                ) : searchResults.length > 0 ? (
                   searchResults.map((role, index) => (
                     <button
                       key={role.id}
