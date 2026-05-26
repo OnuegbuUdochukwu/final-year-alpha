@@ -364,13 +364,16 @@ async def get_optimal_path(
     mapped_target = ROLE_TO_SKILL_MAP.get(target, target)
     
     # 2. Normalization via LLM
-    from shared.llm_service import query_llm
+    from shared.llm_service import query_llm_standard
     canonical_skills = [data.get("name") for _, data in engine.G.nodes(data=True) if data.get("name")]
     if mapped_target not in canonical_skills:
         logger.info(f"Normalizing '{mapped_target}' via LLM...")
         try:
-            prompt = f"Match this skill name '{mapped_target}' to exactly one from this list: {canonical_skills}. Return ONLY the exact match string, nothing else. If none match, return 'UNKNOWN'."
-            normalized = query_llm(user_prompt=prompt, system_prompt="You are an exact string matcher.", max_tokens=50).strip()
+            sys_msg = "You are an exact string matcher."
+            user_msg = f"Match this skill name '{mapped_target}' to exactly one from this list: {canonical_skills}. Return ONLY the exact match string, nothing else. If none match, return 'UNKNOWN'."
+            prompt = f"<|system|>\n{sys_msg}</s>\n<|user|>\n{user_msg}</s>\n<|assistant|>\n"
+            
+            normalized = query_llm_standard(prompt=prompt, model="HuggingFaceH4/zephyr-7b-beta", max_new_tokens=50).strip()
             if normalized in canonical_skills:
                 mapped_target = normalized
         except Exception as e:

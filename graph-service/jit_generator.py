@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 _PRIMARY_MODEL  = "HuggingFaceH4/zephyr-7b-beta"
 _FALLBACK_MODEL = "HuggingFaceH4/zephyr-7b-beta"
-_HF_API_URL     = "https://router.huggingface.co/v1/chat/completions"
+_HF_API_URL     = "https://api-inference.huggingface.co/models"
 _TIMEOUT_SEC    = 60   # generous timeout for serverless cold starts
 
 # Normalisation ceiling: edge weight = time_hours / _WEIGHT_CEILING
@@ -72,9 +72,9 @@ class JITGenerationError(Exception):
 
 # ─── Internal: direct HTTP call to HF router ─────────────────────────────────
 
-def _call_hf_chat(system_prompt: str, user_prompt: str, model: str, max_tokens: int = 1500) -> str:
+def _call_hf_chat(system_prompt: str, user_prompt: str, model: str, max_tokens: int = 1000) -> str:
     """
-    Calls the Hugging Face Serverless API via the router chat completions
+    Calls the Hugging Face Serverless API via the standard inference
     endpoint using requests (no transformers/torch dependency).
 
     Returns the raw assistant message text.
@@ -84,36 +84,42 @@ def _call_hf_chat(system_prompt: str, user_prompt: str, model: str, max_tokens: 
     if not hf_token:
         raise JITGenerationError("HF_TOKEN environment variable is missing.")
 
+    url = f"{_HF_API_URL}/{model}"
     headers = {
         "Authorization": f"Bearer {hf_token}",
         "Content-Type": "application/json",
     }
+    
+    prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{user_prompt}</s>\n<|assistant|>\n"
+    
     payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "max_tokens": max_tokens,
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": max_tokens,
+            "temperature": 0.3,
+            "return_full_text": False
+        }
     }
 
-    logger.info(f"[JIT] POST {_HF_API_URL} | model={model}, prompt_len={len(user_prompt)}")
+    logger.info(f"[JIT] POST {url} | prompt_len={len(prompt)}")
 
     try:
-        resp = requests.post(_HF_API_URL, headers=headers, json=payload, timeout=_TIMEOUT_SEC)
+        resp = requests.post(url, headers=headers, json=payload, timeout=_TIMEOUT_SEC)
         resp.raise_for_status()
     except requests.exceptions.RequestException as e:
         raise JITGenerationError(f"HF API request failed: {e}") from e
 
     data = resp.json()
 
-    # OpenAI-compatible response: {"choices": [{"message": {"content": "..."}}]}
     try:
-        return data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as e:
-        raise JITGenerationError(
-            f"Unexpected HF API response shape: {str(data)[:300]}"
-        ) from e
+        if isinstance(data, list) and len(data) > 0:
+            return data[0].get("generated_text", "")
+        elif isinstance(data, dict) and "generated_text" in data:
+            return data["generated_text"]
+        else:
+            raise JITGenerationError(f"Unexpected HF API response shape: {str(data)[:300]}")
+    except Exception as e:
+        raise JITGenerationError(f"Error parsing HF API response: {str(e)}") from e
 
 
 # ─── Public functions ─────────────────────────────────────────────────────────
@@ -139,7 +145,7 @@ def generate_subgraph(target_role: str) -> dict:
             system_prompt=_SUBGRAPH_SYSTEM_PROMPT,
             user_prompt=user_message,
             model=model,
-            max_tokens=1500,
+            max_tokens=1000,
         )
     except JITGenerationError as e:
         logger.warning(f"[JIT] Primary model '{model}' failed: {e}. Trying fallback...")
@@ -148,7 +154,7 @@ def generate_subgraph(target_role: str) -> dict:
                 system_prompt=_SUBGRAPH_SYSTEM_PROMPT,
                 user_prompt=user_message,
                 model=_FALLBACK_MODEL,
-                max_tokens=1500,
+                max_tokens=1000,
             )
         except JITGenerationError as fallback_e:
             raise JITGenerationError(f"Both primary and fallback HF models failed. Error: {fallback_e}") from fallback_e
@@ -183,7 +189,7 @@ def generate_roadmap_milestones(target_role: str, user_skills: str = "") -> list
             system_prompt=_ROADMAP_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             model=model,
-            max_tokens=1500,
+            max_tokens=1000,
         )
     except JITGenerationError as e:
         raise JITGenerationError(f"Roadmap generation failed for '{target_role}': {e}") from e

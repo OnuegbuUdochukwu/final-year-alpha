@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Add parent directory to path to import shared module
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from shared.llm_service import query_llm
+from shared.llm_service import query_llm_standard
 from role_indexer import TECH_ROLES
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -79,11 +79,11 @@ def generate_roadmap_json(role: str) -> dict:
         'Output valid JSON only. Schema: '
         '{ "milestones": [{ "title": string, "description": string, "skills": [string], "resource": string, "project": string }] }.'
     )
-    raw_response = query_llm(
-        system_prompt=system_prompt,
-        user_prompt=f"Generate the milestone learning path for {role}.",
-        max_tokens=1500,
-        temperature=0.2
+    prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\nGenerate the milestone learning path for {role}.</s>\n<|assistant|>\n"
+    raw_response = query_llm_standard(
+        prompt=prompt,
+        model="HuggingFaceH4/zephyr-7b-beta",
+        max_new_tokens=1500
     )
     
     data = extract_json(raw_response)
@@ -93,11 +93,11 @@ def generate_roadmap_json(role: str) -> dict:
 
 def generate_deep_graph(role: str) -> dict:
     """Generates the granular skill dependencies (deep graph) via the LLM service."""
-    raw_response = query_llm(
-        system_prompt=GRAPH_SYSTEM_PROMPT,
-        user_prompt=f'Generate a learning path subgraph for the role: "{role}"',
-        max_tokens=1500,
-        temperature=0.1
+    prompt = f"<|system|>\n{GRAPH_SYSTEM_PROMPT}</s>\n<|user|>\nGenerate a learning path subgraph for the role: \"{role}\"</s>\n<|assistant|>\n"
+    raw_response = query_llm_standard(
+        prompt=prompt,
+        model="HuggingFaceH4/zephyr-7b-beta",
+        max_new_tokens=1500
     )
     
     subgraph = extract_json(raw_response)

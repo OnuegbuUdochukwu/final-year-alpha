@@ -49,32 +49,6 @@ def test_llm_connection():
         return False
 
 
-def query_llm(system_prompt: str, user_prompt: str, model: str = None, max_tokens: int = 1000, temperature: float = 0.1) -> str:
-    """
-    Queries the Hugging Face LLM using the Chat Completions API.
-    Used by api-gateway, graph-service, and jit_generator.
-    """
-    client = _get_client()
-    selected_model = model or DEFAULT_MODEL
-
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": user_prompt})
-
-    try:
-        response = client.chat.completions.create(
-            model=selected_model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"LLM Query Failed for model {selected_model}: {e}")
-        raise
-
-
 def query_llm_standard(prompt: str, model: str = None, max_new_tokens: int = 500) -> str:
     """
     Queries the Hugging Face Standard Inference API (text generation endpoint).

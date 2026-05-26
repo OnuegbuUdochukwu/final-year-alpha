@@ -157,13 +157,14 @@ def _validate_role_with_llm(query: str) -> str | None:
     user_message = f'Is "{query}" a valid software/technology industry job role?'
 
     try:
-        from shared.llm_service import query_llm
+        from shared.llm_service import query_llm_standard
         
-        raw_text = query_llm(
-            system_prompt=system_prompt,
-            user_prompt=user_message,
-            max_tokens=100,
-            temperature=0.0
+        prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{user_message}</s>\n<|assistant|>\n"
+        
+        raw_text = query_llm_standard(
+            prompt=prompt,
+            model="HuggingFaceH4/zephyr-7b-beta",
+            max_new_tokens=100
         )
         logger.info(f"[RoleSearch] LLM raw response: {raw_text[:200]}")
 
