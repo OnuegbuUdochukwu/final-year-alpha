@@ -34,6 +34,11 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI app."""
     global engine, optimizer
 
+    logger.info("--- Active FastAPI Routes ---")
+    for route in app.routes:
+        logger.info(f"Active Route: {route.path} [{getattr(route, 'name', '')}]")
+    logger.info("---------------------------")
+
     logger.info("Initializing the Pathfinder Engine...")
     engine = PathfinderGraphEngine()
     optimizer = PathOptimizer()
@@ -88,11 +93,17 @@ def _get_pg_conn():
         raise HTTPException(status_code=503, detail="Database not configured.")
     try:
         from urllib.parse import urlparse
-        host = urlparse(pg_url).hostname
-        print(f"Connected to Database: {host}", flush=True)
-    except Exception:
-        pass
-    return psycopg2.connect(pg_url)
+        import socket
+        parsed = urlparse(pg_url)
+        host = parsed.hostname
+        # Bypass IPv6 by explicitly resolving to IPv4
+        resolved_ip = socket.gethostbyname(host)
+        pg_url_ip = pg_url.replace(host, resolved_ip)
+        print(f"Connected to Database: {resolved_ip}", flush=True)
+    except Exception as e:
+        logger.error(f"Error resolving DB host: {e}")
+        pg_url_ip = pg_url
+    return psycopg2.connect(pg_url_ip)
 
 def _ensure_user_skills_table(cur):
     """Idempotently creates the user_skills table if it does not exist."""

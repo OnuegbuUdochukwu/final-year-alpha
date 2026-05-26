@@ -535,10 +535,10 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
             conn.close()
             return [{"id": str(row[0]), "name": row[1]} for row in rows]
         except HTTPException:
-            raise
+            return {"roles": []}
         except Exception as e:
             logger.error(f"[RoleSearch] DB error: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to search roles.")
+            return {"roles": []}
 
     try:
         conn = _get_pg_conn()
@@ -591,10 +591,10 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
         return result
 
     except HTTPException:
-        raise
+        return {"roles": []}
     except Exception as e:
         logger.error(f"[RoleSearch] Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to search roles.")
+        return {"roles": []}
 
 # ─── Resume Feature ──────────────────────────────────────────────────────────
 
@@ -784,6 +784,13 @@ async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("--- Active FastAPI Routes ---")
+    for route in app.routes:
+        logger.info(f"Active Route: {route.path} [{getattr(route, 'name', '')}]")
+    logger.info("---------------------------")
 
 if __name__ == "__main__":
     import uvicorn
