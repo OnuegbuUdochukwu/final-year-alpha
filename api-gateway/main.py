@@ -91,11 +91,17 @@ def _get_pg_conn():
         raise HTTPException(status_code=503, detail="Database not configured.")
     try:
         from urllib.parse import urlparse
-        host = urlparse(pg_url).hostname
-        print(f"Connected to Database: {host}", flush=True)
-    except Exception:
-        pass
-    return psycopg2.connect(pg_url)
+        import socket
+        parsed = urlparse(pg_url)
+        host = parsed.hostname
+        # Bypass IPv6 by explicitly resolving to IPv4
+        resolved_ip = socket.gethostbyname(host)
+        pg_url_ip = pg_url.replace(host, resolved_ip)
+        print(f"Connected to Database: {resolved_ip}", flush=True)
+    except Exception as e:
+        logger.error(f"Error resolving DB host: {e}")
+        pg_url_ip = pg_url
+    return psycopg2.connect(pg_url_ip)
 
 def _ensure_user_skills_table(cur):
     """Idempotently creates the user_skills table if it does not exist."""
@@ -514,33 +520,33 @@ async def get_user_profile(request: Request, user=Depends(verify_token)):
 @app.get("/api/search-roles")
 async def search_roles(query: str = "", _user=Depends(verify_token)):
     """
-    Dynamic Role Search Hub.
+    Dynamic Role Search Hub (Crash-Proof).
 
     1. Searches the Supabase `roles` table (ILIKE fuzzy match).
     2. If no results, calls the HuggingFace LLM to validate the query as a job role.
     3. If the LLM validates it, inserts it into `roles` for future lookups.
     4. Always returns a consistent JSON array: [{"id": ..., "name": ...}]
+    5. On ANY failure (DB, network, LLM), returns {"roles": []} with 200 OK
+       so the frontend dropdown never sees a 500.
     """
-    query = query.strip()
-    if not query or len(query) < 2:
-        # Return all roles when query is too short
-        try:
-            conn = _get_pg_conn()
-            cur = conn.cursor()
-            _ensure_roles_table(cur)
-            conn.commit()
-            cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 10;")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            return [{"id": str(row[0]), "name": row[1]} for row in rows]
-        except HTTPException:
-            return {"roles": []}
-        except Exception as e:
-            logger.error(f"[RoleSearch] DB error: {str(e)}")
-            return {"roles": []}
-
     try:
+        query = query.strip()
+        if not query or len(query) < 2:
+            # Return all roles when query is too short
+            try:
+                conn = _get_pg_conn()
+                cur = conn.cursor()
+                _ensure_roles_table(cur)
+                conn.commit()
+                cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 10;")
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+                return [{"id": str(row[0]), "name": row[1]} for row in rows]
+            except Exception as e:
+                logger.error(f"[RoleSearch] DB error on short query: {str(e)}")
+                return {"roles": []}
+
         conn = _get_pg_conn()
         cur = conn.cursor()
         _ensure_roles_table(cur)
@@ -590,10 +596,8 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
         conn.close()
         return result
 
-    except HTTPException:
-        return {"roles": []}
     except Exception as e:
-        logger.error(f"[RoleSearch] Unexpected error: {str(e)}")
+        logger.error(f"[RoleSearch] Crash-proof fallback triggered: {str(e)}")
         return {"roles": []}
 
 # ─── Resume Feature ──────────────────────────────────────────────────────────

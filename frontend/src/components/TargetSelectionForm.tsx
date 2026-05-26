@@ -90,8 +90,11 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       const response = await client.get('/api/search-roles', {
         params: { query: query.trim() },
       });
-      const results: RoleOption[] = response.data || [];
+      // Handle both formats: array (success) and {"roles": []} (crash-proof fallback)
+      const raw = response.data;
+      const results: RoleOption[] = Array.isArray(raw) ? raw : (raw?.roles ?? []);
       setSearchResults(results);
+      setSearchError(null);
       setIsOpen(results.length > 0 || query.trim().length >= 3);
       setHighlightedIndex(-1);
     } catch (err) {
