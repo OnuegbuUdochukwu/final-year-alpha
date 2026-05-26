@@ -1,4 +1,8 @@
+import os
+import re
+import json
 import logging
+import requests
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -57,26 +61,29 @@ async def parse_resume(file: UploadFile = File(...)):
     if not raw_text:
         raise HTTPException(status_code=415, detail="Could not extract text or unsupported format.")
 
-    # 2. Extract structured data via Hugging Face Serverless Inference API
-    import re
-    import json
-    from shared.llm_service import query_llm
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2. Phase 1: Resume Extraction via HF Standard Inference API
+    # ──────────────────────────────────────────────────────────────────────────
+    from shared.llm_service import query_llm_standard, parse_json_from_llm
 
     # Limit text length to avoid API token/context limits
     truncated_text = raw_text[:4000] if len(raw_text) > 4000 else raw_text
 
-    system_prompt = (
-        "You are an expert HR data extractor. Extract the data from the provided resume text into strictly formatted JSON. "
-        "Do not include markdown. Schema: { 'skills': ['skill1', 'skill2'], 'experience': [{'role': 'string', 'company': 'string', 'years': 'string'}], 'education': [{'degree': 'string', 'institution': 'string'}] }"
+    extraction_prompt = (
+        "Extract all technical skills from the following resume text. "
+        "Return ONLY a valid JSON object with this schema: "
+        '{ "skills": ["skill1", "skill2"], '
+        '"experience": [{"role": "string", "company": "string", "years": "string"}], '
+        '"education": [{"degree": "string", "institution": "string"}] }. '
+        "Do not include introductory or concluding text.\n\n"
+        f"Resume Text:\n{truncated_text}"
     )
 
     try:
-        content = query_llm(
-            system_prompt=system_prompt,
-            user_prompt=f"Extract resume details from this text:\n\n{truncated_text}",
-            model="Qwen/Qwen2.5-7B-Instruct",
-            max_tokens=1000,
-            temperature=0.1
+        content = query_llm_standard(
+            prompt=extraction_prompt,
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            max_new_tokens=1000,
         )
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
@@ -84,14 +91,8 @@ async def parse_resume(file: UploadFile = File(...)):
 
     # 3. Parse JSON and transform the skills format for frontend compatibility
     try:
-        # Clean markdown fences if any
-        cleaned = re.sub(r"```(?:json)?", "", content, flags=re.IGNORECASE).strip()
-        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        if not match:
-            raise ValueError("No JSON object found in response.")
-            
-        parsed_data = json.loads(match.group(0))
-        
+        parsed_data = parse_json_from_llm(content, expect_array=False)
+
         # Format the skills for frontend (which expects list of objects with 'name' and 'confidence')
         raw_skills = parsed_data.get("skills", [])
         formatted_skills = []
@@ -106,41 +107,41 @@ async def parse_resume(file: UploadFile = File(...)):
                     "name": s,
                     "confidence": 0.95
                 })
-        
+
         parsed_data["skills"] = formatted_skills
         parsed_data["filename"] = file.filename
-        
-        # 4. Resume Normalization Layer
+
+        # ──────────────────────────────────────────────────────────────────────
+        # 4. Phase 2: Skill Normalization via HF Standard Inference API
+        # ──────────────────────────────────────────────────────────────────────
         logger.info("Normalizing extracted skills against canonical Graph vocabulary...")
         try:
-            import requests
             graph_url = os.getenv("GRAPH_SERVICE_URL", "http://graph-service:8001")
             resp = requests.get(f"{graph_url}/skills/canonical", timeout=5.0)
             if resp.status_code == 200:
                 canonical_skills = resp.json()
                 raw_skill_names = [s["name"] for s in formatted_skills]
-                
+
                 normalization_prompt = (
-                    "You are a skill normalization engine. Map these raw resume skills to the closest standardized skill names from our graph database.\n"
-                    f"Graph Database Skills: {canonical_skills}\n"
-                    "Return ONLY a JSON array of strings containing the matched standard names. Example: [\"Python\", \"HTML & CSS\"]. "
-                    "If a skill doesn't match anything closely, omit it."
+                    "Map the following raw skills extracted from a resume to their exact matches "
+                    "in our canonical database. You must ONLY output skills that exist in the "
+                    "Canonical List provided. Return ONLY a valid JSON array of strings.\n\n"
+                    f"Raw Skills: {raw_skill_names}\n\n"
+                    f"Canonical List: {canonical_skills}"
                 )
-                
-                normalized_text = query_llm(
-                    system_prompt=normalization_prompt,
-                    user_prompt=f"Raw resume skills: {raw_skill_names}",
-                    max_tokens=500,
-                    temperature=0.0
+
+                normalized_text = query_llm_standard(
+                    prompt=normalization_prompt,
+                    model="meta-llama/Meta-Llama-3-8B-Instruct",
+                    max_new_tokens=500,
                 )
-                
-                clean_norm = re.sub(r"```(?:json)?", "", normalized_text, flags=re.IGNORECASE).strip()
-                norm_match = re.search(r"\[.*\]", clean_norm, re.DOTALL)
-                if norm_match:
-                    normalized_names = json.loads(norm_match.group(0))
+
+                try:
+                    normalized_names = parse_json_from_llm(normalized_text, expect_array=True)
                     parsed_data["normalized_skills"] = normalized_names
                     logger.info(f"Normalized {len(raw_skill_names)} raw skills to {len(normalized_names)} canonical skills.")
-                else:
+                except ValueError as parse_err:
+                    logger.warning(f"Could not parse normalization JSON: {parse_err}")
                     parsed_data["normalized_skills"] = []
             else:
                 logger.warning(f"Failed to fetch canonical skills from Graph Service: HTTP {resp.status_code}")
@@ -148,7 +149,7 @@ async def parse_resume(file: UploadFile = File(...)):
         except Exception as norm_err:
             logger.error(f"Error during skill normalization: {norm_err}")
             parsed_data["normalized_skills"] = []
-            
+
     except Exception as e:
         logger.error(f"Failed to parse LLM response JSON: {e}. Raw content: {content}")
         raise HTTPException(status_code=500, detail="Failed to parse structured resume data.")
@@ -158,6 +159,5 @@ async def parse_resume(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("api:app", host="0.0.0.0", port=port, reload=False)
