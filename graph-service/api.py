@@ -91,19 +91,7 @@ def _get_pg_conn():
     pg_url = os.getenv("SUPABASE_PG_URL", "")
     if not pg_url:
         raise HTTPException(status_code=503, detail="Database not configured.")
-    try:
-        from urllib.parse import urlparse
-        import socket
-        parsed = urlparse(pg_url)
-        host = parsed.hostname
-        # Bypass IPv6 by explicitly resolving to IPv4
-        resolved_ip = socket.gethostbyname(host)
-        pg_url_ip = pg_url.replace(host, resolved_ip)
-        print(f"Connected to Database: {resolved_ip}", flush=True)
-    except Exception as e:
-        logger.error(f"Error resolving DB host: {e}")
-        pg_url_ip = pg_url
-    return psycopg2.connect(pg_url_ip)
+    return psycopg2.connect(pg_url)
 
 def _ensure_user_skills_table(cur):
     """Idempotently creates the user_skills table if it does not exist."""
