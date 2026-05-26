@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 _PRIMARY_MODEL  = "mistralai/Mistral-7B-Instruct-v0.3"
-_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+_FALLBACK_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 _HF_API_BASE    = "https://api-inference.huggingface.co/v1/chat/completions"
 _TIMEOUT_SEC    = 30   # raised from 25s to handle cold starts on HF free tier
 

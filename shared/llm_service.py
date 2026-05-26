@@ -4,7 +4,7 @@ from huggingface_hub import InferenceClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 
 def _get_client() -> InferenceClient:
     """Returns an authenticated InferenceClient, raises an error if token is missing."""

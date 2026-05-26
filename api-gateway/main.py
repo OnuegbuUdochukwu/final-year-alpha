@@ -47,7 +47,7 @@ _rate_limit_store: dict = defaultdict(list)  # {user_id: [timestamps]}
 # Hugging Face Inference API config (reused from graph-service pattern)
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 _HF_ROLE_VALIDATION_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-_HF_ROLE_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+_HF_ROLE_FALLBACK_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 _HF_API_BASE = "https://api-inference.huggingface.co/v1/chat/completions"
 
 # Jinja2 template environment — loads from api-gateway/templates/

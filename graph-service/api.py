@@ -15,7 +15,7 @@ load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 _HF_ROADMAP_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-_HF_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+_HF_FALLBACK_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 _HF_API_BASE = "https://api-inference.huggingface.co/v1/chat/completions"
 
 # Import our custom mathematical engine
