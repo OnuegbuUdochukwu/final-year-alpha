@@ -60,8 +60,9 @@ function App() {
    * Stores the target so we can re-use it during recalculation.
    */
   const handlePathFound = useCallback((data: any) => {
+    console.log("Roadmap API Response:", data);
     setPathData(data);
-    setCurrentTarget(data.target_skill);
+    setCurrentTarget(data.target_skill || data.target_role);
   }, []);
 
   /**

@@ -28,6 +28,7 @@ interface Milestone {
   skills: string[];
   resource: string;
   project: string;
+  estimated_hours?: number;
 }
 
 interface SkillNode {
@@ -205,7 +206,9 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className="text-slate-400">Est. Time:</span>
-            <strong className="text-slate-200">{Math.max(0, safeNodes.length - completedSkills.size) * 5} hrs</strong>
+            <strong className="text-slate-200">
+              {milestones.reduce((sum, m) => sum + (m.estimated_hours || 10), 0)} hrs
+            </strong>
           </div>
           <div className="flex items-center gap-2 text-sm bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
             <BookOpen className="w-4 h-4 text-purple-400" />

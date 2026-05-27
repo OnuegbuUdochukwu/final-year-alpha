@@ -10,9 +10,11 @@ interface SkillNode {
 interface PredictedResumeProps {
   currentSkills: { name: string; confidence: number }[];
   pathData: {
-    target_skill: string;
+    target_skill?: string;
     target_role?: string;
-    nodes: SkillNode[];
+    missing_skills?: string[];
+    nodes?: SkillNode[];
+    milestones?: { skills: string[] }[];
   };
 }
 
@@ -27,8 +29,17 @@ const chipVariants = {
 };
 
 const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathData }) => {
-  const safeNodes = pathData.nodes || [];
-  const newSkills = safeNodes.map(s => s.label);
+  const targetRole = pathData.target_role || pathData.target_skill || 'Target Role';
+
+  let newSkills: string[] = [];
+  if (pathData.missing_skills && pathData.missing_skills.length > 0) {
+    newSkills = pathData.missing_skills;
+  } else if (pathData.milestones && pathData.milestones.length > 0) {
+    const allSkills = pathData.milestones.flatMap(m => m.skills || []);
+    newSkills = Array.from(new Set(allSkills));
+  } else if (pathData.nodes) {
+    newSkills = pathData.nodes.map(s => s.label);
+  }
 
   return (
     <motion.div
@@ -109,7 +120,7 @@ const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathDa
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500 dark:text-gray-400">Target Role</span>
             <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-full shadow-sm shadow-indigo-500/30">
-              🎯 {pathData.target_skill}
+              🎯 {targetRole.replace(/-/g, ' ')}
             </span>
           </div>
         </div>
