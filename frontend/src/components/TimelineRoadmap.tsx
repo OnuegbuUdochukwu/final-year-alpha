@@ -89,8 +89,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
 
   // Safe fallback if milestones is undefined
   const milestones = pathData.milestones || [];
-  // Safe fallback for nodes
-  const safeNodes = pathData.nodes || [];
+
 
   const toggleMilestone = (idx: number) => {
     setExpandedMilestones(prev => {
