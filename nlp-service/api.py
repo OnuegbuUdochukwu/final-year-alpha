@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI."""
     logger.info("Initializing NLP Service...")
-    from shared.llm_service import test_llm_connection
-    test_llm_connection()
     yield
     logger.info("Shutting down NLP Service...")
 
