@@ -29,9 +29,15 @@ def query_llm_standard(prompt: str, model: str = None, max_new_tokens: int = 500
     logger.info(f"[StandardAPI] Calling model={selected_model}, prompt_len={len(prompt)}")
 
     client = InferenceClient(model=selected_model, token=hf_token)
-    response = client.text_generation(prompt, max_new_tokens=max_new_tokens, return_full_text=False)
+    response = client.chat_completion(
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=max_new_tokens,
+        temperature=0.1
+    )
     
-    return response
+    return response.choices[0].message.content
 
 
 def parse_json_from_llm(raw_text: str, expect_array: bool = False):
