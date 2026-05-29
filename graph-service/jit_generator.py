@@ -75,51 +75,32 @@ class JITGenerationError(Exception):
 def _call_hf_chat(system_prompt: str, user_prompt: str, model: str, max_tokens: int = 1000) -> str:
     """
     Calls the Hugging Face Serverless API via the standard inference
-    endpoint using requests (no transformers/torch dependency).
+    endpoint using huggingface_hub.InferenceClient.
 
     Returns the raw assistant message text.
     Raises JITGenerationError on failure.
     """
+    from huggingface_hub import InferenceClient
+    
     hf_token = os.environ.get("HF_TOKEN", "")
     if not hf_token:
         raise JITGenerationError("HF_TOKEN environment variable is missing.")
 
-    url = f"{_HF_API_URL}/{model}"
-    headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json",
-    }
-    
-    prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{user_prompt}</s>\n<|assistant|>\n"
-    
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": max_tokens,
-            "temperature": 0.3,
-            "return_full_text": False
-        }
-    }
+    logger.info(f"[JIT] Calling InferenceClient | model={model}")
 
-    logger.info(f"[JIT] POST {url} | prompt_len={len(prompt)}")
-
+    client = InferenceClient(model=model, token=hf_token)
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=_TIMEOUT_SEC)
-        resp.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise JITGenerationError(f"HF API request failed: {e}") from e
-
-    data = resp.json()
-
-    try:
-        if isinstance(data, list) and len(data) > 0:
-            return data[0].get("generated_text", "")
-        elif isinstance(data, dict) and "generated_text" in data:
-            return data["generated_text"]
-        else:
-            raise JITGenerationError(f"Unexpected HF API response shape: {str(data)[:300]}")
+        response = client.chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=0.3
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        raise JITGenerationError(f"Error parsing HF API response: {str(e)}") from e
+        raise JITGenerationError(f"HF API request failed: {e}") from e
 
 
 # ─── Public functions ─────────────────────────────────────────────────────────

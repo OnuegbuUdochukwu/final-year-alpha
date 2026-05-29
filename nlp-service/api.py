@@ -114,7 +114,7 @@ async def parse_resume(file: UploadFile = File(...)):
         # ──────────────────────────────────────────────────────────────────────
         logger.info("Normalizing extracted skills against canonical Graph vocabulary...")
         try:
-            graph_url = os.getenv("GRAPH_SERVICE_URL", "http://graph-service:8001")
+            graph_url = os.getenv("GRAPH_SERVICE_URL", "https://fyp-graph.onrender.com")
             resp = requests.get(f"{graph_url}/skills/canonical", timeout=5.0)
             if resp.status_code == 200:
                 canonical_skills = resp.json()
