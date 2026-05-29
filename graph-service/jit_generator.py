@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-_PRIMARY_MODEL  = "HuggingFaceH4/zephyr-7b-beta"
-_FALLBACK_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+_PRIMARY_MODEL  = "meta-llama/Meta-Llama-3-8B-Instruct"
+_FALLBACK_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 _HF_API_URL     = "https://api-inference.huggingface.co/models"
 _TIMEOUT_SEC    = 60   # generous timeout for serverless cold starts
 
@@ -34,6 +34,7 @@ _WEIGHT_CEILING = 300.0
 # System prompt for subgraph generation (used by generate_subgraph / find-path JIT)
 _SUBGRAPH_SYSTEM_PROMPT = """You are a curriculum design API. Your ONLY output is a single valid JSON object.
 Do NOT output markdown, code fences, explanations, or any text outside the JSON object.
+Do NOT wrap the JSON in ```json``` or any other formatting. Output raw JSON only.
 
 Generate a learning path subgraph for the given target job role.
 
@@ -54,14 +55,16 @@ Rules:
 6. Every node (except Foundation) must appear as target_id in at least one edge.
 7. Do NOT include a "weight" field — the system calculates this automatically.
 
-Return ONLY the JSON object. No other text."""
+Return ONLY the JSON object. No markdown, no explanation, no filler text."""
 
 # System prompt for milestone roadmap generation (used by generate-roadmap JIT)
 _ROADMAP_SYSTEM_PROMPT = (
     "You are a senior technical career architect. Your job is to define "
     "structured, chronological learning roadmaps for technical roles. "
     "You MUST return ONLY a valid JSON array of objects. Each object must "
-    "have a 'milestone_name', 'description', and a 'skills' array."
+    "have a 'milestone_name', 'description', and a 'skills' array. "
+    "Do NOT wrap the output in markdown code fences. Do NOT include any "
+    "explanatory text before or after the JSON. Output raw JSON only."
 )
 
 # ─── Custom exception ─────────────────────────────────────────────────────────

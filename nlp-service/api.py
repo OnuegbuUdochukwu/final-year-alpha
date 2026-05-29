@@ -81,7 +81,7 @@ async def parse_resume(file: UploadFile = File(...)):
         content = query_llm_standard(
             prompt=extraction_prompt,
             model="meta-llama/Meta-Llama-3-8B-Instruct",
-            max_new_tokens=1000,
+            max_new_tokens=3000,
         )
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
@@ -131,7 +131,7 @@ async def parse_resume(file: UploadFile = File(...)):
                 normalized_text = query_llm_standard(
                     prompt=normalization_prompt,
                     model="meta-llama/Meta-Llama-3-8B-Instruct",
-                    max_new_tokens=500,
+                    max_new_tokens=3000,
                 )
 
                 try:
