@@ -296,8 +296,13 @@ async def generate_roadmap_jit(
 
     from jit_generator import generate_roadmap_milestones, JITGenerationError
 
+    safe_skills = []
+    if skills:
+        safe_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
+    sanitized_skills_str = ", ".join(safe_skills)
+
     try:
-        milestones = generate_roadmap_milestones(target_role, user_skills=skills)
+        milestones = generate_roadmap_milestones(target_role, user_skills=sanitized_skills_str)
         milestones_json = {"milestones": milestones}
     except JITGenerationError as e:
         logger.error(f"[JIT] LLM generation failed: {str(e)}")
@@ -398,9 +403,14 @@ async def get_optimal_path(
                 step['hours'] = 10.0
 
         # 4. Gap Analysis Filtering
-        user_skills_list = [s.strip() for s in known_skills.split(',') if s.strip()] if known_skills else []
-        if user_skills_list:
-            gaps = engine.get_gap_analysis(mapped_target, user_skills_list)
+        safe_skills = []
+        if known_skills:
+            safe_skills.extend([s.strip().lower() for s in known_skills.split(",") if s.strip()])
+        if start:
+            safe_skills.append(start.strip().lower())
+
+        if safe_skills:
+            gaps = engine.get_gap_analysis(mapped_target, safe_skills)
             missing_skill_names = {gap["skill_name"] for gap in gaps}
             missing_skill_names.add(mapped_target) # Ensure target is always considered a valid destination
             

@@ -145,11 +145,11 @@ class PathfinderGraphEngine:
         """
         query = """
         MATCH (role:Skill {name: $target_role})<-[:REQUIRES*]-(skill:Skill)
-        WHERE NOT skill.name IN $user_skills
+        WHERE NOT toLower(skill.name) IN $user_skills
         RETURN DISTINCT skill.name as skill_name, skill.node_type as category
         """
         
-        logger.info(f"Running Gap Analysis for '{target_role}' with known skills: {user_skills}")
+        logger.info(f"Executing Cypher pruning with known skills: {user_skills}")
         try:
             with self.neo_driver.session(database=self.neo4j_database) as session:
                 result = session.run(query, target_role=target_role, user_skills=user_skills)
