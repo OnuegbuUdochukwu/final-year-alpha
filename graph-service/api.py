@@ -378,7 +378,7 @@ async def get_optimal_path(
             user_msg = f"Match this skill name '{mapped_target}' to exactly one from this list: {canonical_skills}. Return ONLY the exact match string, nothing else. If none match, return 'UNKNOWN'."
             prompt = f"<|system|>\n{sys_msg}</s>\n<|user|>\n{user_msg}</s>\n<|assistant|>\n"
             
-            normalized = query_llm_standard(prompt=prompt, model="HuggingFaceH4/zephyr-7b-beta", max_new_tokens=50).strip()
+            normalized = query_llm_standard(prompt=prompt, model="meta-llama/Meta-Llama-3-8B-Instruct", max_new_tokens=50).strip()
             if normalized in canonical_skills:
                 mapped_target = normalized
         except Exception as e:
