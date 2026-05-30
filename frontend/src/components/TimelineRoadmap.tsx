@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Milestone {
-  title: string;
+  milestone_name: string;
   description: string;
   skills: string[];
   resource: string;
@@ -135,6 +135,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
    * Submits feedback flagging a milestone as irrelevant.
    */
   const handleFlagMilestone = async (milestoneTitle: string) => {
+    console.log("Milestone data (flag):", milestoneTitle);
     if (flaggedMilestones.has(milestoneTitle)) return;
     
     try {
@@ -284,6 +285,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
         className="space-y-4"
       >
         {milestones.map((milestone, idx) => {
+          console.log("Milestone data:", milestone);
           const isExpanded = expandedMilestones.has(idx);
           const completedInMilestone = milestone.skills.filter(s => isSkillKnown(s, completedSkills)).length;
           const isMilestoneComplete = completedInMilestone === milestone.skills.length && milestone.skills.length > 0;
@@ -325,7 +327,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                             ? 'text-emerald-400'
                             : 'text-slate-200'
                       }`}>
-                        {milestone.title}
+                        {milestone.milestone_name}
                       </h3>
                       {mastered && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -345,10 +347,10 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleFlagMilestone(milestone.title);
+                      handleFlagMilestone(milestone.milestone_name);
                     }}
-                    disabled={flaggedMilestones.has(milestone.title)}
-                    className={`p-1.5 rounded-lg transition-colors ${flaggedMilestones.has(milestone.title) ? 'text-red-400 bg-red-400/10 cursor-not-allowed' : 'hover:bg-slate-700 hover:text-red-400'}`}
+                    disabled={flaggedMilestones.has(milestone.milestone_name)}
+                    className={`p-1.5 rounded-lg transition-colors ${flaggedMilestones.has(milestone.milestone_name) ? 'text-red-400 bg-red-400/10 cursor-not-allowed' : 'hover:bg-slate-700 hover:text-red-400'}`}
                     title="Flag as irrelevant"
                   >
                     <AlertTriangle className="w-4 h-4" />
