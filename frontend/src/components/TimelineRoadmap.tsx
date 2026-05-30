@@ -376,11 +376,11 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                         <div className="flex flex-col gap-2">
                           <div className="flex items-start gap-2 text-indigo-300">
                             <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span><strong>Resource:</strong> {milestone.resource}</span>
+                            <span><strong>Resource:</strong> {milestone.resource || "See recommended community documentation"}</span>
                           </div>
                           <div className="flex items-start gap-2 text-emerald-300">
                             <Flag className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span><strong>Project:</strong> {milestone.project}</span>
+                            <span><strong>Project:</strong> {milestone.project || "Build a capstone implementation highlighting these skills"}</span>
                           </div>
                         </div>
                       </div>
