@@ -26,18 +26,27 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   isRecalculating,
 }) => {
   const roadmapNodes: RoadmapNode[] = useMemo(() => {
-    const nodes = pathData?.nodes ?? [];
-    return nodes.map((node: any, idx: number) => ({
+    // Support both `steps` (from /find-path) and `nodes` (legacy/fallback)
+    const steps = pathData?.steps ?? pathData?.nodes ?? [];
+    
+    return steps.map((step: any, idx: number) => ({
       id: idx,
-      label: node.title ?? node.label ?? node.skill ?? `Step ${idx + 1}`,
-      description: node.description ?? node.details ?? '',
-      resources: node.resources ?? node.courses ?? [],
-      milestones: node.milestones ?? [],
-      durationWeeks: node.duration_weeks ?? node.estimated_time ?? '',
-      difficulty: node.difficulty ?? 'intermediate',
-      isCompleted: node.completed ?? false,
-      year: node.year ?? node.phase ?? '',
-      subjects: node.subjects ?? [],
+      // Map step.to_node from the A* path, fallback to other fields
+      label: step.to_node ?? step.title ?? step.label ?? step.skill ?? `Step ${idx + 1}`,
+      
+      // Use the course recommended by the engine as the description/resource
+      description: step.course ? `Recommended Focus: ${step.course}` : (step.description ?? step.details ?? ''),
+      resources: step.course ? [{ title: step.course, url: '' }] : (step.resources ?? step.courses ?? []),
+      
+      milestones: step.milestones ?? [],
+      
+      // Convert hours to approximate weeks (assuming ~10 hours/week)
+      durationWeeks: step.hours ? Math.max(1, Math.round(step.hours / 10)) : (step.duration_weeks ?? step.estimated_time ?? ''),
+      
+      difficulty: step.difficulty ?? 'intermediate',
+      isCompleted: step.completed ?? false,
+      year: step.year ?? step.phase ?? '',
+      subjects: step.subjects ?? [],
     }));
   }, [pathData]);
 

@@ -527,7 +527,7 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
                 cur = conn.cursor()
                 _ensure_roles_table(cur)
                 conn.commit()
-                cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 10;")
+                cur.execute("SELECT id, role_name FROM roles ORDER BY role_name LIMIT 100;")
                 rows = cur.fetchall()
                 cur.close()
                 conn.close()
@@ -543,7 +543,7 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
 
         # Step 1: Search Supabase
         cur.execute(
-            "SELECT id, role_name FROM roles WHERE role_name ILIKE %s LIMIT 10;",
+            "SELECT id, role_name FROM roles WHERE role_name ILIKE %s LIMIT 100;",
             (f"%{query}%",)
         )
         rows = cur.fetchall()
