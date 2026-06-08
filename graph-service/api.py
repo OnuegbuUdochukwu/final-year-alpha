@@ -400,6 +400,24 @@ async def get_optimal_path(
                 # Re-resolve: JIT nodes use the original role name
                 mapped_target = target
                 route = engine.find_optimal_path(start, mapped_target)
+
+                # 5. Bridge Fallback: start skill may not connect to the JIT subgraph
+                #    (JIT paths always begin from "Foundation"). Create a bridge edge.
+                if route is None and start and start.lower() != "foundation":
+                    logger.info(f"[JIT] Bridging '{start}' → 'Foundation' for connectivity...")
+                    with engine.neo_driver.session(database=engine.neo4j_database) as session:
+                        session.run(
+                            """
+                            MERGE (a:Skill {name: $src})
+                            MERGE (b:Skill {name: 'Foundation'})
+                            MERGE (a)-[r:LEARN_VIA {title: 'Skill Bridge'}]->(b)
+                            SET r.normalized_weight = 0.001, r.cost = 0, r.hours = 0
+                            """,
+                            src=start,
+                        )
+                    hot_patch_networkx(engine)
+                    route = engine.find_optimal_path(start, mapped_target)
+
             except Exception as jit_err:
                 logger.error(f"[JIT] Generation failed: {jit_err}")
 
