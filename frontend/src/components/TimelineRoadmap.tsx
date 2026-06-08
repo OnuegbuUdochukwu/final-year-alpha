@@ -24,6 +24,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   pathData,
   onStepCompleted,
   isRecalculating,
+  knownSkills = [],
 }) => {
   const roadmapNodes: RoadmapNode[] = useMemo(() => {
     // Map over the detailed JIT milestones instead of raw A* steps
@@ -32,7 +33,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
     return milestones.map((milestone: any, idx: number) => {
       // Visual Pruning: check if user possesses the skills listed in this milestone
       const milestoneSkills = milestone.skills ?? [];
-      const userSkillsLower = knownSkills.map(s => s.toLowerCase());
+      const userSkillsLower = knownSkills.map((s: string) => s.toLowerCase());
       
       // Mark complete if they have at least one of the core skills for this block
       const hasSkill = milestoneSkills.some((s: string) => 
