@@ -163,13 +163,31 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  const initialChecked = useMemo(() => {
+    return (node.subjects || [])
+      .map((subj: any) => typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? ''))
+      .filter((name: string) => knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase()));
+  }, [node.subjects, knownSkills]);
+
+  const [checkedSkills, setCheckedSkills] = useState<string[]>(initialChecked);
+  const [isManuallyCompleted, setIsManuallyCompleted] = useState(false);
+
+  const handleCheckboxToggle = (name: string) => {
+    setCheckedSkills(prev => 
+      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    );
+  };
+
+  const totalSkills = node.subjects?.length || 0;
+  const isFullyCompleted = isManuallyCompleted || (totalSkills > 0 && checkedSkills.length === totalSkills);
+
   const diffKey = node.difficulty?.toLowerCase() ?? 'intermediate';
   const diffStyle = difficultyColors[diffKey] || difficultyColors.intermediate;
 
   return (
     <div className="relative pl-10">
       <div className="absolute left-[7px] top-1">
-        {node.isCompleted ? (
+        {isFullyCompleted ? (
           <div className="w-[17px] h-[17px] rounded-full bg-rust-500 flex items-center justify-center">
             <CheckCircle2 className="w-[11px] h-[11px] text-white" />
           </div>
@@ -193,7 +211,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3
                   className={`text-sm font-bold font-heading ${
-                    node.isCompleted ? 'text-forest-700' : 'text-ink'
+                    isFullyCompleted ? 'text-forest-700' : 'text-ink'
                   }`}
                 >
                   {node.label}
@@ -216,22 +234,25 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {node.isCompleted ? (
-                <span className="text-[10px] font-bold text-forest-600 uppercase tracking-wider">Done</span>
-              ) : (
-                <button
-                  onClick={onToggleComplete}
-                  disabled={isRecalculating}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-rust-500 to-rust-600 hover:from-rust-600 hover:to-rust-700 disabled:opacity-50 disabled:cursor-wait transition-all active:scale-[0.95]"
-                >
-                  {isRecalculating ? (
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-3 h-3" />
-                  )}
-                  <span className="hidden sm:inline">Complete</span>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setIsManuallyCompleted(!isManuallyCompleted);
+                  onToggleComplete();
+                }}
+                disabled={isRecalculating}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all active:scale-[0.95] disabled:opacity-50 disabled:cursor-wait ${
+                  isFullyCompleted 
+                    ? 'bg-forest-500 hover:bg-forest-600 shadow-md shadow-forest-500/20' 
+                    : 'bg-gradient-to-br from-rust-500 to-rust-600 hover:from-rust-600 hover:to-rust-700'
+                }`}
+              >
+                {isRecalculating ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3 h-3" />
+                )}
+                <span className="hidden sm:inline">{isFullyCompleted ? 'Completed' : 'Complete'}</span>
+              </button>
               <button
                 onClick={() => setExpanded(!expanded)}
                 className="p-1 text-clay-400 hover:text-clay-600 transition-colors"
@@ -259,7 +280,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
                 <div className="space-y-1.5">
                   {node.subjects.map((subj: any, idx: number) => {
                     const name = typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? '');
-                    const isKnown = knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase());
+                    const isChecked = checkedSkills.includes(name);
                     return (
                       <label
                         key={idx}
@@ -268,12 +289,12 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
                         <div className="relative flex items-center justify-center mt-0.5">
                           <input
                             type="checkbox"
-                            checked={isKnown}
-                            readOnly
+                            checked={isChecked}
+                            onChange={() => handleCheckboxToggle(name)}
                             className="w-3.5 h-3.5 rounded border-clay-300 text-rust-500 focus:ring-rust-500 transition-colors cursor-pointer"
                           />
                         </div>
-                        <span className={`text-xs transition-colors ${isKnown ? 'text-clay-400 line-through' : 'text-clay-700 group-hover:text-ink'}`}>
+                        <span className={`text-xs transition-colors ${isChecked ? 'text-clay-400 line-through' : 'text-clay-700 group-hover:text-ink'}`}>
                           {name}
                         </span>
                       </label>

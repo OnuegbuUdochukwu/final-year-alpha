@@ -56,7 +56,7 @@ def parse_json_from_llm(raw_text: str, expect_array: bool = False):
         ValueError if no valid JSON can be extracted.
     """
     # Strip markdown code fences
-    cleaned = re.sub(r"```(?:json)?", "", raw_text, flags=re.IGNORECASE).strip()
+    cleaned = raw_text.replace('```json', '').replace('```', '').strip()
 
     if expect_array:
         match = re.search(r"\[.*\]", cleaned, re.DOTALL)

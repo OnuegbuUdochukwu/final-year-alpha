@@ -123,7 +123,8 @@ async def parse_resume(file: UploadFile = File(...)):
                 normalization_prompt = (
                     "Map the following raw skills extracted from a resume to their exact matches "
                     "in our canonical database. You must ONLY output skills that exist in the "
-                    "Canonical List provided. Return ONLY a valid JSON array of strings.\n\n"
+                    "Canonical List provided. You MUST return ONLY a raw JSON array of strings. "
+                    "Do NOT wrap the JSON in markdown formatting, code fences (```), or provide any conversational filler.\n\n"
                     f"Raw Skills: {raw_skill_names}\n\n"
                     f"Canonical List: {canonical_skills}"
                 )
