@@ -100,7 +100,7 @@ function App() {
             <h1 className="heading text-4xl md:text-5xl text-ink dark:text-clay-50 mb-3">
               AI Career Pathfinder
             </h1>
-            <p className="max-w-xl mx-auto text-base text-clay-600 dark:text-clay-400 leading-relaxed font-[450]">
+            <p className="max-w-xl mx-auto text-base text-clay-700 dark:text-clay-300 leading-relaxed font-[450]">
               Upload your resume, discover skill gaps, and follow a personalized roadmap to your next career milestone.
             </p>
 
