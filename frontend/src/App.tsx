@@ -97,26 +97,26 @@ function App() {
               <Compass className="w-7 h-7 text-white" />
             </div>
 
-            <h1 className="heading text-4xl md:text-5xl text-ink dark:text-clay-50 mb-3">
+            <h1 className="heading text-4xl md:text-5xl text-ink mb-3">
               AI Career Pathfinder
             </h1>
-            <p className="max-w-xl mx-auto text-base text-clay-700 dark:text-clay-300 leading-relaxed font-[450]">
+            <p className="max-w-xl mx-auto text-base text-clay-700 leading-relaxed font-[450]">
               Upload your resume, discover skill gaps, and follow a personalized roadmap to your next career milestone.
             </p>
 
             <div className="flex items-center justify-center gap-3 mt-7">
               <span
                 className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                  parsedSkills.length > 0 ? 'bg-rust-500' : 'bg-clay-300 dark:bg-clay-700'
+                  parsedSkills.length > 0 ? 'bg-rust-500' : 'bg-clay-300'
                 }`}
               />
               <span
                 className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                  pathData ? 'bg-rust-500' : 'bg-clay-300 dark:bg-clay-700'
+                  pathData ? 'bg-rust-500' : 'bg-clay-300'
                 }`}
               />
-              <span className="w-8 h-px bg-clay-300 dark:bg-clay-700" />
-              <span className="text-[11px] font-semibold text-clay-400 dark:text-clay-500 uppercase tracking-[0.15em]">
+              <span className="w-8 h-px bg-clay-300" />
+              <span className="text-[11px] font-semibold text-clay-500 uppercase tracking-[0.15em]">
                 {!parsedSkills.length ? 'Analyze' : !pathData ? 'Plan' : 'Grow'}
               </span>
             </div>
