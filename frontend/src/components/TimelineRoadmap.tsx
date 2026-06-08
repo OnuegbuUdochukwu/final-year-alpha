@@ -26,29 +26,33 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   isRecalculating,
 }) => {
   const roadmapNodes: RoadmapNode[] = useMemo(() => {
-    // Support both `steps` (from /find-path) and `nodes` (legacy/fallback)
-    const steps = pathData?.steps ?? pathData?.nodes ?? [];
+    // Map over the detailed JIT milestones instead of raw A* steps
+    const milestones = pathData?.milestones ?? [];
     
-    return steps.map((step: any, idx: number) => ({
-      id: idx,
-      // Map step.to_node from the A* path, fallback to other fields
-      label: step.to_node ?? step.title ?? step.label ?? step.skill ?? `Step ${idx + 1}`,
+    return milestones.map((milestone: any, idx: number) => {
+      // Visual Pruning: check if user possesses the skills listed in this milestone
+      const milestoneSkills = milestone.skills ?? [];
+      const userSkillsLower = knownSkills.map(s => s.toLowerCase());
       
-      // Use the course recommended by the engine as the description/resource
-      description: step.course ? `Recommended Focus: ${step.course}` : (step.description ?? step.details ?? ''),
-      resources: step.course ? [{ title: step.course, url: '' }] : (step.resources ?? step.courses ?? []),
-      
-      milestones: step.milestones ?? [],
-      
-      // Convert hours to approximate weeks (assuming ~10 hours/week)
-      durationWeeks: step.hours ? Math.max(1, Math.round(step.hours / 10)) : (step.duration_weeks ?? step.estimated_time ?? ''),
-      
-      difficulty: step.difficulty ?? 'intermediate',
-      isCompleted: step.completed ?? false,
-      year: step.year ?? step.phase ?? '',
-      subjects: step.subjects ?? [],
-    }));
-  }, [pathData]);
+      // Mark complete if they have at least one of the core skills for this block
+      const hasSkill = milestoneSkills.some((s: string) => 
+        userSkillsLower.includes(s.toLowerCase())
+      );
+
+      return {
+        id: idx,
+        label: milestone.milestone_name ?? `Milestone ${idx + 1}`,
+        description: milestone.description ?? '',
+        resources: milestone.resource ? [{ title: milestone.resource, url: '' }] : [],
+        milestones: [], // The component structure calls the card a "node", so we leave sub-milestones empty
+        durationWeeks: milestone.estimated_time ?? '',
+        difficulty: milestone.difficulty ?? 'intermediate',
+        isCompleted: hasSkill,
+        year: '',
+        subjects: milestoneSkills.map((s: string) => ({ name: s })),
+      };
+    });
+  }, [pathData, knownSkills]);
 
   const targetRole = pathData?.target_skill ?? pathData?.target_role ?? 'Career Goal';
 

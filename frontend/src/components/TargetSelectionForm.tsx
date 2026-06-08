@@ -76,11 +76,10 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
     setError(null);
 
     try {
-      const response = await client.get('/api/find-path', {
+      const response = await client.get('/api/generate-roadmap', {
         params: {
-          start: startSkill,
-          target: selectedRole,
-          additional_skills: resumeSkills?.join(','),
+          target_role: selectedRole,
+          skills: resumeSkills?.join(','),
         },
       });
       onPathFound(response.data);
