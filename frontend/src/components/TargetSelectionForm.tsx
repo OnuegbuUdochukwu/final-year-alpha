@@ -10,7 +10,8 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Target, DollarSign, Clock, ArrowRight, Loader2, AlertCircle, Search, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Target, DollarSign, Clock, ArrowRight, AlertCircle, Search, Sparkles } from 'lucide-react';
 import client from '../api/client';
 
 // ─── Form Types ──────────────────────────────────────────────────────────────
@@ -258,260 +259,268 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
   }, [onPathFound, startSkill]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center">
-          <Target className="w-6 h-6 mr-2 text-blue-500" />
-          Set Your Goal
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Search for any tech role — our AI will learn new roles in real-time.
-        </p>
-        {startSkill !== 'Foundation' && (
-          <div className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-full">
-            🚀 Starting from: <span className="font-bold">{startSkill}</span>
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
-        {/* Dynamic Role Search Combobox */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Target Job Role
-          </label>
-          <div ref={comboboxRef} className="relative">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                {isSearching ? (
-                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4 text-gray-400" />
-                )}
-              </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => {
-                  if (searchResults.length > 0) setIsOpen(true);
-                  else if (searchQuery.length === 0) searchRoles('');
-                }}
-                placeholder="Search roles... e.g. Machine Learning Engineer"
-                className="block w-full pl-10 pr-10 py-2.5 text-base border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                role="combobox"
-                aria-expanded={isOpen}
-                aria-haspopup="listbox"
-                aria-autocomplete="list"
-                autoComplete="off"
-                id="role-search-input"
-              />
-              {selectedRole && (
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <Sparkles className={`w-4 h-4 ${isCustomSelection ? 'text-violet-500' : 'text-amber-500'}`} />
-                </div>
-              )}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 }}
+      className="w-full max-w-2xl mx-auto mt-8"
+    >
+      <div className="p-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1.5 flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30">
+              <Target className="w-5 h-5 text-brand-500" />
             </div>
-
-            {/* Dropdown Results */}
-            {isOpen && (
-              <div
-                className="role-search-dropdown absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto"
-                role="listbox"
-                id="role-search-listbox"
-              >
-                {searchError ? (
-                  <div className="px-4 py-4 text-center">
-                    <AlertCircle className="w-5 h-5 text-red-500 mx-auto mb-1" />
-                    <p className="text-sm text-red-500 dark:text-red-400 font-medium">{searchError}</p>
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((role, index) => (
-                    <button
-                      key={role.id}
-                      type="button"
-                      role="option"
-                      aria-selected={highlightedIndex === index}
-                      className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
-                        highlightedIndex === index
-                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      } ${
-                        index === 0 ? 'rounded-t-lg' : ''
-                      } ${
-                        index === searchResults.length - 1 ? 'rounded-b-lg' : ''
-                      }`}
-                      onClick={() => handleSelectRole(role)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                    >
-                      <span className="font-medium">{role.name}</span>
-                      {highlightedIndex === index && (
-                        <span className="text-xs text-blue-500 dark:text-blue-400">↵ Select</span>
-                      )}
-                    </button>
-                  ))
-                ) : isSearching ? (
-                  <div className="px-4 py-6 text-center">
-                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Searching roles...</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">AI is validating new roles</p>
-                  </div>
-                ) : showCustomOption ? (
-                  /* ─── AI Discovery: Custom Role Option ──────────────────── */
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={highlightedIndex === 0}
-                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors cursor-pointer rounded-lg ${
-                      highlightedIndex === 0
-                        ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-violet-50/50 dark:hover:bg-violet-900/20'
-                    }`}
-                    onClick={handleSelectCustomRole}
-                    onMouseEnter={() => setHighlightedIndex(0)}
-                  >
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">
-                        Search for: "{searchQuery.trim()}"
-                      </p>
-                      <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">
-                        AI Discovery — our model will validate & learn this role
-                      </p>
-                    </div>
-                    {highlightedIndex === 0 && (
-                      <span className="flex-shrink-0 text-xs text-violet-500 dark:text-violet-400 font-medium">↵ Select</span>
-                    )}
-                  </button>
-                ) : searchQuery.trim().length > 0 ? (
-                  <div className="px-4 py-4 text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Type at least 3 characters to search</p>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-          {/* Hidden Controller to keep react-hook-form wired */}
-          <Controller
-            name="targetRole"
-            control={control}
-            rules={{ required: 'Please select a target role' }}
-            render={() => <></>}
-          />
-          {errors.targetRole && (
-            <span className="text-red-500 text-xs mt-1 block">{errors.targetRole.message || 'This field is required'}</span>
+            Set Your Goal
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Search for any tech role — our AI will learn new roles in real-time.
+          </p>
+          {startSkill !== 'Foundation' && (
+            <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-3 py-1.5 rounded-full">
+              <span className="text-brand-500">Starting from:</span>
+              <span className="font-bold">{startSkill}</span>
+            </div>
           )}
         </div>
 
-        {/* Budget Slider — KEEP EXACTLY AS IS */}
-        <div>
-          <div className="flex justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
-              <DollarSign className="w-4 h-4 mr-1 text-green-500" />
-              Maximum Budget
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
+          {/* Dynamic Role Search Combobox */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Target Job Role
             </label>
+            <div ref={comboboxRef} className="relative">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  {isSearching ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-brand-200 border-t-brand-500 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => {
+                    if (searchResults.length > 0) setIsOpen(true);
+                    else if (searchQuery.length === 0) searchRoles('');
+                  }}
+                  placeholder="Search roles... e.g. Machine Learning Engineer"
+                  className="block w-full pl-10 pr-10 py-2.5 text-base border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  role="combobox"
+                  aria-expanded={isOpen}
+                  aria-haspopup="listbox"
+                  aria-autocomplete="list"
+                  autoComplete="off"
+                  id="role-search-input"
+                />
+                {selectedRole && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <Sparkles className={`w-4 h-4 ${isCustomSelection ? 'text-violet-500' : 'text-amber-500'}`} />
+                  </div>
+                )}
+              </div>
+
+              {isOpen && (
+                <div
+                  className="role-search-dropdown absolute z-50 w-full mt-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                  role="listbox"
+                  id="role-search-listbox"
+                >
+                  {searchError ? (
+                    <div className="px-4 py-4 text-center">
+                      <AlertCircle className="w-5 h-5 text-red-500 mx-auto mb-1" />
+                      <p className="text-sm text-red-500 dark:text-red-400 font-medium">{searchError}</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((role, index) => (
+                      <button
+                        key={role.id}
+                        type="button"
+                        role="option"
+                        aria-selected={highlightedIndex === index}
+                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
+                          highlightedIndex === index
+                            ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                        onClick={() => handleSelectRole(role)}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                      >
+                        <span className="font-medium">{role.name}</span>
+                        {highlightedIndex === index && (
+                          <span className="text-xs text-brand-500 dark:text-brand-400 font-medium">↵ Select</span>
+                        )}
+                      </button>
+                    ))
+                  ) : isSearching ? (
+                    <div className="px-4 py-6 text-center">
+                      <div className="w-6 h-6 rounded-full border-2 border-brand-200 border-t-brand-500 animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Searching roles...</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">AI is validating new roles</p>
+                    </div>
+                  ) : showCustomOption ? (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={highlightedIndex === 0}
+                      className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors cursor-pointer ${
+                        highlightedIndex === 0
+                          ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-violet-50/50 dark:hover:bg-violet-900/20'
+                      }`}
+                      onClick={handleSelectCustomRole}
+                      onMouseEnter={() => setHighlightedIndex(0)}
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-brand-600 flex items-center justify-center shadow-sm">
+                        <Sparkles className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">
+                          Search for: &ldquo;{searchQuery.trim()}&rdquo;
+                        </p>
+                        <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">
+                          AI Discovery — our model will validate &amp; learn this role
+                        </p>
+                      </div>
+                      {highlightedIndex === 0 && (
+                        <span className="flex-shrink-0 text-xs text-violet-500 dark:text-violet-400 font-medium">↵ Select</span>
+                      )}
+                    </button>
+                  ) : searchQuery.trim().length > 0 ? (
+                    <div className="px-4 py-4 text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Type at least 3 characters to search</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+            <Controller
+              name="targetRole"
+              control={control}
+              rules={{ required: 'Please select a target role' }}
+              render={() => <></>}
+            />
+            {errors.targetRole && (
+              <span className="text-red-500 text-xs mt-1 block">{errors.targetRole.message || 'This field is required'}</span>
+            )}
+          </div>
+
+          {/* Budget Slider */}
+          <div>
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <DollarSign className="w-4 h-4 text-emerald-500" />
+                Maximum Budget
+              </label>
+              <Controller
+                name="maxBudget"
+                control={control}
+                render={({ field }) => (
+                  <span className="text-sm font-bold text-brand-600 dark:text-brand-400">${field.value}</span>
+                )}
+              />
+            </div>
             <Controller
               name="maxBudget"
               control={control}
               render={({ field }) => (
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">${field.value}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="2000"
+                  step="50"
+                  {...field}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                />
               )}
             />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>$0 (no limit)</span>
+              <span>$2000+</span>
+            </div>
           </div>
-          <Controller
-            name="maxBudget"
-            control={control}
-            render={({ field }) => (
-              <input
-                type="range"
-                min="0"
-                max="2000"
-                step="50"
-                {...field}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-600"
-              />
-            )}
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>$0 (no limit)</span>
-            <span>$2000+</span>
-          </div>
-        </div>
 
-        {/* Time Cap Slider — KEEP EXACTLY AS IS */}
-        <div>
-          <div className="flex justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
-              <Clock className="w-4 h-4 mr-1 text-amber-500" />
-              Maximum Time
-            </label>
+          {/* Time Cap Slider */}
+          <div>
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-500" />
+                Maximum Time
+              </label>
+              <Controller
+                name="maxHours"
+                control={control}
+                render={({ field }) => (
+                  <span className="text-sm font-bold text-brand-600 dark:text-brand-400">{field.value} hrs</span>
+                )}
+              />
+            </div>
             <Controller
               name="maxHours"
               control={control}
               render={({ field }) => (
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{field.value} hrs</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="5"
+                  {...field}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                />
               )}
             />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0 hrs (no limit)</span>
+              <span>200+ hrs</span>
+            </div>
           </div>
-          <Controller
-            name="maxHours"
-            control={control}
-            render={({ field }) => (
-              <input
-                type="range"
-                min="0"
-                max="200"
-                step="5"
-                {...field}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-amber-500"
-              />
-            )}
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>0 hrs (no limit)</span>
-            <span>200+ hrs</span>
-          </div>
-        </div>
 
-        {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              role="alert"
+              className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800 flex items-center gap-2"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </motion.div>
+          )}
 
-        <div className="pt-4 flex justify-end">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={`
-              flex items-center space-x-2 px-8 py-3 rounded-lg font-medium text-white transition-all w-full justify-center
-              ${isLoading
-                ? 'bg-blue-300 dark:bg-blue-800/50 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md transform hover:-translate-y-0.5'
-              }
-            `}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Generating Roadmap (AI is tailoring your path...)</span>
-              </>
-            ) : (
-              <>
-                <span>Generate Learning Path</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-    </div>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`
+                flex items-center justify-center gap-2 px-8 py-3 rounded-lg font-semibold text-white transition-all w-full
+                ${isLoading
+                  ? 'bg-brand-300 dark:bg-brand-800/50 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30 active:scale-[0.98]'
+                }
+              `}
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  <span>Generating Roadmap...</span>
+                </>
+              ) : (
+                <>
+                  <span>Generate Learning Path</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </motion.div>
   );
 };
 

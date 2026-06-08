@@ -12,9 +12,9 @@
  *   parsedSkills → topSkill → pathData (recalculates on each step completion)
  */
 
-import { useState, useCallback } from 'react';
-import { LogOut, FileText } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useRef } from 'react';
+import { LogOut, FileText, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from './context/AuthContext';
 import LoginModal from './components/LoginModal';
 import ResumeUpload from './components/ResumeUpload';
@@ -31,6 +31,7 @@ interface ParsedSkill {
 
 function App() {
   const { token, userId, logout } = useAuth();
+  const mainRef = useRef<HTMLDivElement>(null);
 
   // Core data state
   const [pathData, setPathData] = useState<any>(null);
@@ -99,33 +100,72 @@ function App() {
 
   return (
     <>
+      {/* ── Skip to content ─────────────────────────────────────────────── */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
+      {/* ── Background decoration ──────────────────────────────────────── */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 dark:bg-brand-800/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-200/20 dark:bg-violet-800/15 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-100/10 dark:bg-brand-900/10 rounded-full blur-3xl" />
+      </div>
+
       {/* ── Auth gate ─────────────────────────────────────────────────────── */}
       {!token && <LoginModal />}
 
       {/* ── App shell ─────────────────────────────────────────────────────── */}
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+      <div
+        ref={mainRef}
+        id="main-content"
+        className="min-h-screen bg-gray-50/80 dark:bg-gray-950/90 flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8"
+      >
         <div className="w-full max-w-2xl">
 
           {/* ── Header ── */}
-          <div className="text-center mb-12 relative">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-center mb-12 relative"
+          >
             {/* Logout button (top-right when logged in) */}
             {token && (
               <button
                 onClick={logout}
-                className="absolute right-0 top-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                className="absolute right-0 top-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors"
+                aria-label="Sign out"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Sign out {userId ? `(${userId})` : ''}
               </button>
             )}
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 shadow-lg shadow-brand-500/25 mb-5">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-3">
               AI Career Pathfinder
             </h1>
-            <p className="max-w-xl mx-auto text-lg text-gray-500 dark:text-gray-400">
-              Upload your resume → discover skill gaps → generate a personalized learning roadmap → mark milestones complete for a live updated path.
+            <p className="max-w-xl mx-auto text-base text-gray-500 dark:text-gray-400 leading-relaxed">
+              Upload your resume to discover skill gaps, generate a personalized learning roadmap, and track your progress with live path updates.
             </p>
-          </div>
+
+            {/* Progress indicator dots */}
+            <div className="flex items-center justify-center gap-1.5 mt-6">
+              <span className={`w-2 h-2 rounded-full transition-colors ${parsedSkills.length > 0 ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+              <span className={`w-2 h-2 rounded-full transition-colors ${pathData ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+              <span className="w-12 h-px bg-gray-200 dark:bg-gray-700" />
+              <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                {!parsedSkills.length ? 'Upload' : !pathData ? 'Set Goal' : 'Learn'}
+              </span>
+            </div>
+          </motion.div>
 
           {/* ── Main flow ── */}
           <ResumeUpload
@@ -133,8 +173,6 @@ function App() {
             onSkillsParsed={handleSkillsParsed}
             topSkill={currentStart !== 'Foundation' ? currentStart : null}
           />
-
-
 
           {/* Timeline + Predicted Resume + Resume Builder appear after a path is generated */}
           {pathData && (
@@ -149,16 +187,21 @@ function App() {
 
               {/* ── Build Resume CTA ── */}
               {token && (
-                <div className="flex justify-center mt-4 mb-12">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                  className="flex justify-center mt-6 mb-12"
+                >
                   <button
                     type="button"
                     onClick={() => setShowResumeBuilder(true)}
-                    className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-100"
+                    className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 transition-all hover:scale-[1.02] active:scale-100 hover:shadow-xl hover:shadow-brand-500/30"
                   >
                     <FileText className="w-4 h-4" />
                     Build &amp; Download Resume
                   </button>
-                </div>
+                </motion.div>
               )}
             </>
           )}

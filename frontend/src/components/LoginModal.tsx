@@ -38,33 +38,38 @@ const LoginModal: React.FC = () => {
   };
 
   return (
-    // Full-screen backdrop
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/70 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sign in"
+    >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
         className="w-full max-w-sm mx-4"
       >
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl shadow-black/30 border border-gray-100 dark:border-gray-800 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-8 py-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/15 mb-4">
-              <BrainCircuit className="w-8 h-8 text-white" />
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl shadow-black/20 border border-gray-100 dark:border-gray-800 overflow-hidden">
+          <div className="bg-gradient-to-br from-brand-600 to-violet-700 px-8 py-8 text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_60%)]" />
+            <div className="relative">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm mb-4 shadow-lg shadow-black/10">
+                <BrainCircuit className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">
+                AI Career Pathfinder
+              </h1>
+              <p className="text-brand-200 text-sm mt-1">Sign in to access your roadmap</p>
             </div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              AI Career Pathfinder
-            </h1>
-            <p className="text-blue-200 text-sm mt-1">Sign in to access your roadmap</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="px-8 py-7 space-y-5">
-            {/* Error banner */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
+                role="alert"
                 className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm"
               >
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -72,7 +77,6 @@ const LoginModal: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Username */}
             <div>
               <label
                 htmlFor="login-username"
@@ -88,11 +92,10 @@ const LoginModal: React.FC = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 placeholder="student"
-                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
               />
             </div>
 
-            {/* Password */}
             <div>
               <label
                 htmlFor="login-password"
@@ -108,20 +111,18 @@ const LoginModal: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
               />
             </div>
 
-            {/* Demo credentials hint */}
             <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
               Demo credentials: <span className="font-mono font-semibold">student / fyp2024</span>
             </p>
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading || !username || !password}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 transition-all hover:shadow-xl hover:shadow-brand-500/30 active:scale-[0.98]"
             >
               {isLoading ? (
                 <>

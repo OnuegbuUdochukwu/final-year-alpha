@@ -1,11 +1,8 @@
-// frontend/src/components/ResumeBuilder.tsx
-// 3-step wizard: Skill Review → Live Preview → PDF Download
-
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, Easing } from "framer-motion";
 import {
   FileText, Sparkles, Download, ChevronRight, ChevronLeft,
-  Plus, X, RefreshCw, Loader2, Check, AlertCircle, GripVertical
+  Plus, X, RefreshCw, Loader2, Check, AlertCircle
 } from "lucide-react";
 import {
   getResumeSkills,
@@ -15,22 +12,15 @@ import {
   CourseItem,
 } from "../api/resumeApi";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface ResumeBuilderProps {
   token: string;
-  /** CV skills from SkillRadar — name strings only */
   cvSkills: string[];
-  /** Target role from pathfinding */
   targetRole?: string;
-  /** Courses from the learning path */
   courses?: CourseItem[];
   onClose: () => void;
 }
 
 type Step = "review" | "preview" | "download";
-
-// ─── Animations ───────────────────────────────────────────────────────────────
 
 const slideVariants = {
   enter: (dir: number) => ({
@@ -45,18 +35,15 @@ const slideVariants = {
   }),
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** A single removable skill badge */
 const SkillChip: React.FC<{
   label: string;
   variant: "cv" | "gained" | "added";
   onRemove: () => void;
 }> = ({ label, variant, onRemove }) => {
   const colours: Record<string, string> = {
-    cv:     "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-700 dark:text-indigo-300",
-    gained: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:border-emerald-700 dark:text-emerald-300",
-    added:  "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-300",
+    cv:     "bg-brand-50 border-brand-200 text-brand-700 dark:bg-brand-900/30 dark:border-brand-700 dark:text-brand-300",
+    gained: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300",
+    added:  "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300",
   };
   return (
     <motion.span
@@ -66,13 +53,12 @@ const SkillChip: React.FC<{
       exit={{ scale: 0.8, opacity: 0, transition: { duration: 0.15 } }}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border select-none ${colours[variant]}`}
     >
-      <GripVertical className="w-3 h-3 opacity-40 cursor-grab" />
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${label}`}
-        className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 transition-colors"
+        className="ml-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5 transition-colors"
       >
         <X className="w-2.5 h-2.5" />
       </button>
@@ -80,15 +66,11 @@ const SkillChip: React.FC<{
   );
 };
 
-// ─── Step indicators ─────────────────────────────────────────────────────────
-
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: "review",   label: "Review Skills", icon: <Sparkles className="w-4 h-4" /> },
   { id: "preview",  label: "Live Preview",  icon: <FileText  className="w-4 h-4" /> },
   { id: "download", label: "Download",      icon: <Download  className="w-4 h-4" /> },
 ];
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   token,
@@ -97,23 +79,19 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   courses = [],
   onClose,
 }) => {
-  // ── State ─────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("review");
   const [direction, setDirection] = useState(1);
 
-  // Skill lists
   const [cvList,     setCvList]     = useState<string[]>([]);
   const [gainedList, setGainedList] = useState<string[]>([]);
   const [addedList,  setAddedList]  = useState<string[]>([]);
   const [removed,    setRemoved]    = useState<Set<string>>(new Set());
 
-  // Profile fields
   const [name,     setName]     = useState("");
   const [title,    setTitle]    = useState("");
   const [email,    setEmail]    = useState("");
   const [linkedin, setLinkedin] = useState("");
 
-  // UI state
   const [addInput,    setAddInput]    = useState("");
   const [loading,     setLoading]     = useState(true);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
@@ -124,7 +102,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
 
   const addInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Initial data fetch ────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -136,7 +113,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       })
       .catch((e) => {
         if (cancelled) return;
-        // Fallback to props if API fails
         setCvList(cvSkills);
         setGainedList([]);
         console.warn("Resume skills fetch failed, using props:", e.message);
@@ -145,7 +121,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     return () => { cancelled = true; };
   }, [token, cvSkills]);
 
-  // ── Skill helpers ─────────────────────────────────────────────────────────
   const removeSkill = useCallback((skill: string) => {
     setRemoved((prev) => new Set(prev).add(skill));
   }, []);
@@ -163,7 +138,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   const visibleGained = gainedList.filter(s => !removed.has(s));
   const visibleAdded  = addedList.filter(s => !removed.has(s));
 
-  // ── Build payload ─────────────────────────────────────────────────────────
   const buildPayload = useCallback((): ResumePayload => ({
     name:           name  || undefined,
     title:          title || undefined,
@@ -177,14 +151,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     courses,
   }), [name, title, email, linkedin, cvList, gainedList, addedList, removed, targetRole, courses]);
 
-  // ── Navigation ────────────────────────────────────────────────────────────
   const goTo = useCallback((next: Step, dir: number) => {
     setDirection(dir);
     setError(null);
     setStep(next);
   }, []);
 
-  // ── Preview ───────────────────────────────────────────────────────────────
   const handlePreview = useCallback(async () => {
     setPreviewing(true);
     setError(null);
@@ -199,7 +171,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     }
   }, [token, buildPayload, goTo]);
 
-  // ── Download ──────────────────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
     setDownloading(true);
     setError(null);
@@ -214,10 +185,8 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     }
   }, [token, buildPayload]);
 
-  // ── Step index helper ─────────────────────────────────────────────────────
   const stepIndex = STEPS.findIndex(s => s.id === step);
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -225,6 +194,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Resume Builder"
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -234,36 +206,36 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
         className="relative w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         style={{ maxHeight: "90vh" }}
       >
-        {/* ── Top Bar ─────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-600 to-violet-600">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-brand-600 to-violet-600">
           <div className="flex items-center gap-3">
-            <FileText className="w-5 h-5 text-white" />
+            <div className="p-1.5 bg-white/15 rounded-lg">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
             <span className="text-white font-semibold text-base tracking-tight">Resume Builder</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-white/70 hover:text-white transition-colors rounded-lg p-1"
+            className="text-white/70 hover:text-white transition-colors rounded-lg p-1 hover:bg-white/10"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* ── Step Indicators ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-center gap-2 px-6 pt-5 pb-1">
+        <div className="flex items-center justify-center gap-2 px-6 pt-5 pb-2">
           {STEPS.map((s, i) => {
             const active  = s.id === step;
             const done    = i < stepIndex;
             return (
               <React.Fragment key={s.id}>
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200
-                  ${active ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" : ""}
+                  ${active ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 shadow-sm" : ""}
                   ${done   ? "text-emerald-600 dark:text-emerald-400" : ""}
                   ${!active && !done ? "text-gray-400 dark:text-gray-600" : ""}
                 `}>
-                  {done ? <Check className="w-4 h-4" /> : s.icon}
-                  <span>{s.label}</span>
+                  {done ? <Check className="w-3.5 h-3.5" /> : React.cloneElement(s.icon as React.ReactElement, { className: "w-3.5 h-3.5" })}
+                  <span className="hidden sm:inline">{s.label}</span>
                 </div>
                 {i < STEPS.length - 1 && (
                   <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-700 flex-shrink-0" />
@@ -273,13 +245,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           })}
         </div>
 
-        {/* ── Error banner ────────────────────────────────────────────── */}
         <AnimatePresence>
           {error && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
+              role="alert"
               className="mx-6 mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl text-red-700 dark:text-red-300 text-sm"
             >
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -288,11 +260,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Step Content ─────────────────────────────────────────────── */}
         <div className="flex-1 overflow-hidden relative" style={{ minHeight: 320 }}>
           <AnimatePresence custom={direction} mode="wait">
 
-            {/* ══ STEP 1: Skill Review ══════════════════════════════════ */}
             {step === "review" && (
               <motion.div
                 key="review"
@@ -305,13 +275,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               >
                 {loading ? (
                   <div className="flex items-center justify-center h-40 gap-3 text-gray-400">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-sm">Loading your skills…</span>
+                    <div className="w-5 h-5 rounded-full border-2 border-brand-200 border-t-brand-500 animate-spin" />
+                    <span className="text-sm">Loading your skills&hellip;</span>
                   </div>
                 ) : (
                   <>
-                    {/* Profile mini-form */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
                         { label: "Full Name",   val: name,     setter: setName,     placeholder: "Jane Doe" },
                         { label: "Job Title",   val: title,    setter: setTitle,    placeholder: "Data Scientist" },
@@ -327,13 +296,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                             value={val}
                             onChange={e => setter(e.target.value)}
                             placeholder={placeholder}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-gray-300 dark:placeholder-gray-600"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-gray-300 dark:placeholder-gray-600 transition-all"
                           />
                         </div>
                       ))}
                     </div>
 
-                    {/* Skill sections */}
                     {[
                       { title: "CV Skills",    list: visibleCv,     variant: "cv"     as const, key: cvList },
                       { title: "Gained Skills",list: visibleGained, variant: "gained" as const, key: gainedList },
@@ -341,9 +309,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                     ].map(({ title: sTitle, list, variant }) => list.length > 0 && (
                       <div key={sTitle}>
                         <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
-                          {sTitle} <span className="font-normal text-gray-300">({list.length})</span>
+                          {sTitle} <span className="font-normal text-gray-300 dark:text-gray-600">({list.length})</span>
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           <AnimatePresence>
                             {list.map(skill => (
                               <SkillChip
@@ -358,7 +326,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                       </div>
                     ))}
 
-                    {/* Add skill */}
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
                         Add a Skill
@@ -370,14 +337,14 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                           value={addInput}
                           onChange={e => setAddInput(e.target.value)}
                           onKeyDown={e => e.key === "Enter" && addSkill()}
-                          placeholder="e.g. TensorFlow, Kubernetes…"
-                          className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-gray-300 dark:placeholder-gray-600"
+                          placeholder="e.g. TensorFlow, Kubernetes&hellip;"
+                          className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-gray-300 dark:placeholder-gray-600"
                         />
                         <button
                           type="button"
                           onClick={addSkill}
                           disabled={!addInput.trim()}
-                          className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-medium flex items-center gap-1.5 transition-colors"
+                          className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-sm font-medium flex items-center gap-1.5 transition-colors"
                         >
                           <Plus className="w-4 h-4" /> Add
                         </button>
@@ -388,7 +355,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               </motion.div>
             )}
 
-            {/* ══ STEP 2: Live Preview ══════════════════════════════════ */}
             {step === "preview" && (
               <motion.div
                 key="preview"
@@ -399,15 +365,15 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 exit="exit"
                 className="absolute inset-0 flex flex-col p-4 gap-3"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-1">
                   <span className="text-xs text-gray-400 dark:text-gray-500">
-                    Rendered preview — changes not yet saved
+                    Rendered preview
                   </span>
                   <button
                     type="button"
                     onClick={handlePreview}
                     disabled={previewing}
-                    className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${previewing ? "animate-spin" : ""}`} />
                     Re-preview
@@ -424,15 +390,14 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full gap-2 text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Generating preview…</span>
+                      <div className="w-4 h-4 rounded-full border-2 border-brand-200 border-t-brand-500 animate-spin" />
+                      <span className="text-sm">Generating preview&hellip;</span>
                     </div>
                   )}
                 </div>
               </motion.div>
             )}
 
-            {/* ══ STEP 3: Download ══════════════════════════════════════ */}
             {step === "download" && (
               <motion.div
                 key="download"
@@ -443,7 +408,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 exit="exit"
                 className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center"
               >
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
                   <FileText className="w-8 h-8 text-white" />
                 </div>
                 <div>
@@ -459,10 +424,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="flex items-center gap-2.5 px-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-base shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2.5 px-8 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 text-white font-semibold text-base shadow-lg shadow-brand-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]"
                 >
                   {downloading ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF…</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF&hellip;</>
                   ) : downloadOk ? (
                     <><Check className="w-5 h-5" /> Downloaded!</>
                   ) : (
@@ -475,7 +440,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                   onClick={() => goTo("review", -1)}
                   className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
-                  ← Edit skills again
+                  &larr; Edit skills again
                 </button>
               </motion.div>
             )}
@@ -483,8 +448,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           </AnimatePresence>
         </div>
 
-        {/* ── Bottom Navigation ────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50">
           <button
             type="button"
             onClick={() => {
@@ -502,10 +466,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               type="button"
               onClick={handlePreview}
               disabled={previewing || loading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors shadow-md shadow-indigo-500/20"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors shadow-md shadow-brand-500/20"
             >
               {previewing
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Rendering…</>
+                ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Rendering&hellip;</>
                 : <>Preview Resume <ChevronRight className="w-4 h-4" /></>
               }
             </button>
@@ -515,7 +479,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
             <button
               type="button"
               onClick={() => goTo("download", 1)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors shadow-md shadow-indigo-500/20"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors shadow-md shadow-brand-500/20"
             >
               Looks Good <ChevronRight className="w-4 h-4" />
             </button>
