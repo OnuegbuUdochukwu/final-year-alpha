@@ -10,7 +10,7 @@ import {
   Sparkles,
   RefreshCw,
   GraduationCap,
-  BookOpen,
+  Code2,
 } from 'lucide-react';
 
 interface TimelineRoadmapProps {
@@ -51,6 +51,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
         isCompleted: hasSkill,
         year: '',
         subjects: milestoneSkills.map((s: string) => ({ name: s })),
+        project: milestone.project ?? '',
       };
     });
   }, [pathData, knownSkills]);
@@ -98,6 +99,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                   node={node}
                   onToggleComplete={() => handleToggleComplete(node.id)}
                   isRecalculating={isRecalculating}
+                  knownSkills={knownSkills}
                 />
               ))}
             </div>
@@ -136,12 +138,14 @@ interface RoadmapNode {
   isCompleted: boolean;
   year: string;
   subjects: any[];
+  project: string;
 }
 
 interface RoadmapStepProps {
   node: RoadmapNode;
   onToggleComplete: () => void;
   isRecalculating: boolean;
+  knownSkills: string[];
 }
 
 const difficultyColors: Record<string, string> = {
@@ -155,6 +159,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
   node,
   onToggleComplete,
   isRecalculating,
+  knownSkills,
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -249,19 +254,29 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
             {node.subjects && node.subjects.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-clay-500 uppercase tracking-[0.1em] mb-1.5">
-                  Subjects
+                  Skills to Master
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-1.5">
                   {node.subjects.map((subj: any, idx: number) => {
                     const name = typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? '');
+                    const isKnown = knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase());
                     return (
-                      <span
+                      <label
                         key={idx}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-white border border-clay-200 text-clay-600 rounded-md"
+                        className="flex items-start gap-2 cursor-pointer group"
                       >
-                        <BookOpen className="w-3 h-3" />
-                        {name}
-                      </span>
+                        <div className="relative flex items-center justify-center mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={isKnown}
+                            readOnly
+                            className="w-3.5 h-3.5 rounded border-clay-300 text-rust-500 focus:ring-rust-500 transition-colors cursor-pointer"
+                          />
+                        </div>
+                        <span className={`text-xs transition-colors ${isKnown ? 'text-clay-400 line-through' : 'text-clay-700 group-hover:text-ink'}`}>
+                          {name}
+                        </span>
+                      </label>
                     );
                   })}
                 </div>
@@ -295,6 +310,20 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {node.project && (
+              <div>
+                <p className="text-[11px] font-semibold text-clay-500 uppercase tracking-[0.1em] mb-1.5">
+                  Hands-On Project
+                </p>
+                <div className="flex items-start gap-2 bg-clay-50 p-3 rounded-lg border border-clay-200">
+                  <Code2 className="w-4 h-4 text-rust-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-clay-700 leading-relaxed">
+                    {node.project}
+                  </p>
                 </div>
               </div>
             )}

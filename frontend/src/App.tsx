@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { LogOut, FileText, Compass } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from './context/AuthContext';
@@ -39,6 +39,16 @@ function App() {
     setPathData(data);
     setCurrentTarget(data.target_skill || data.target_role);
   }, []);
+
+  const roadmapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pathData && roadmapRef.current) {
+      setTimeout(() => {
+        roadmapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [pathData]);
 
   const handleStepCompleted = useCallback(async (completedSkill: string) => {
     setCurrentStart(completedSkill);
@@ -130,12 +140,14 @@ function App() {
 
           {pathData && (
             <>
-              <TimelineRoadmap
-                pathData={pathData}
-                onStepCompleted={handleStepCompleted}
-                isRecalculating={isRecalculating}
-                knownSkills={pathData.knownSkills}
-              />
+              <div ref={roadmapRef} className="scroll-mt-6">
+                <TimelineRoadmap
+                  pathData={pathData}
+                  onStepCompleted={handleStepCompleted}
+                  isRecalculating={isRecalculating}
+                  knownSkills={parsedSkills.map(s => s.name)}
+                />
+              </div>
               <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
 
               {token && (
