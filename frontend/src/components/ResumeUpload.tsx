@@ -94,7 +94,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
       transition={{ duration: 0.45 }}
       className="w-full max-w-2xl mx-auto"
     >
-      <div className="bg-white rounded-2xl shadow-sm border border-clay-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-clay-200">
         <div className="px-6 py-5 border-b border-clay-100">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-rust-50">

@@ -163,7 +163,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
             <ul
               id="role-search-results"
               role="listbox"
-              className="role-search-dropdown absolute z-20 mt-2 w-full bg-white border border-clay-200 rounded-xl shadow-lg shadow-clay-900/10 overflow-hidden max-h-64 overflow-y-auto"
+              className="role-search-dropdown absolute z-50 mt-2 w-full bg-white border border-clay-200 rounded-xl shadow-lg shadow-clay-900/10 max-h-64 overflow-y-auto"
             >
               {isSearching ? (
                 <li className="px-4 py-3 text-sm text-clay-400 flex items-center gap-2">
