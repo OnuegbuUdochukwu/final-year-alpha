@@ -45,7 +45,9 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
 
     try {
       const response = await client.get('/api/search-roles', { params: { q: value } });
-      const roles = response.data?.roles ?? response.data ?? [];
+      const rawRoles = response.data?.roles ?? response.data ?? [];
+      // API may return [{id, name}] objects or plain strings — normalize to strings
+      const roles = rawRoles.map((r: any) => (typeof r === 'string' ? r : r.name)).filter(Boolean);
       setResults(roles);
     } catch (err: any) {
       console.error('Role search failed:', err);
