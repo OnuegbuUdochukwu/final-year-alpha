@@ -388,6 +388,21 @@ async def get_optimal_path(
         # 3. Get raw A* path
         route = engine.find_optimal_path(start, mapped_target)
 
+        # 4. JIT Fallback: if target not in graph, generate subgraph on-the-fly
+        if route is None:
+            logger.info(f"[JIT] Target '{mapped_target}' not in graph. Triggering JIT generation for '{target}'...")
+            try:
+                from jit_generator import generate_subgraph, inject_into_neo4j, hot_patch_networkx, JITGenerationError
+                subgraph = generate_subgraph(target)
+                inject_into_neo4j(subgraph, engine)
+                hot_patch_networkx(engine)
+
+                # Re-resolve: JIT nodes use the original role name
+                mapped_target = target
+                route = engine.find_optimal_path(start, mapped_target)
+            except Exception as jit_err:
+                logger.error(f"[JIT] Generation failed: {jit_err}")
+
         if route is None:
             raise HTTPException(
                 status_code=404,
