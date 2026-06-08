@@ -298,7 +298,9 @@ def hot_patch_networkx(engine) -> None:
         raise JITGenerationError(f"NetworkX hot-patch failed: {str(e)}") from e
 
 
-# ─── Private helpers ──────────────────────────────────────────────────────────def _extract_and_validate_json(raw_text: str, target_role: str) -> dict:
+# ─── Private helpers ──────────────────────────────────────────────────────────
+
+def _extract_and_validate_json(raw_text: str, target_role: str) -> dict:
     """
     Extracts the first JSON object from the LLM's response text (handles cases
     where the model wraps the JSON in prose or markdown fences) and validates
