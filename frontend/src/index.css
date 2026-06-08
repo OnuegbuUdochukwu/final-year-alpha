@@ -1,28 +1,65 @@
 @import "tailwindcss";
 
 @theme {
-  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-heading: "Playfair Display", serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
-
+  --color-paper: #f7f3ee;
+  --color-paper-alt: #f0ebe4;
   --color-surface: #ffffff;
-  --color-surface-secondary: #f9fafb;
-  --color-surface-tertiary: #f3f4f6;
-  --color-surface-dark: #111827;
-  --color-surface-dark-secondary: #1f2937;
-  --color-surface-dark-tertiary: #374151;
+  --color-ink: #2d2520;
+  --color-ink-dim: #73675d;
 
-  --color-border-light: #e5e7eb;
-  --color-border-dark: #374151;
+  --color-rust-50: #fdf4f0;
+  --color-rust-100: #fae6dd;
+  --color-rust-200: #f5cbbc;
+  --color-rust-300: #eea894;
+  --color-rust-400: #e67d66;
+  --color-rust-500: #c75146;
+  --color-rust-600: #b0453b;
+  --color-rust-700: #933830;
+  --color-rust-800: #7a2d27;
+  --color-rust-900: #642520;
+
+  --color-gold-50: #fdf8ec;
+  --color-gold-100: #f9eec9;
+  --color-gold-200: #f3dd94;
+  --color-gold-300: #eccc5e;
+  --color-gold-400: #e0b840;
+  --color-gold-500: #d4a030;
+  --color-gold-600: #b88928;
+  --color-gold-700: #9a7121;
+  --color-gold-800: #7d5d1b;
+  --color-gold-900: #684c16;
+
+  --color-forest-50: #f0f7f3;
+  --color-forest-100: #daece1;
+  --color-forest-200: #b5d9c3;
+  --color-forest-300: #8bc0a0;
+  --color-forest-400: #61a77d;
+  --color-forest-500: #3d8b5e;
+  --color-forest-600: #2f704b;
+  --color-forest-700: #24593b;
+  --color-forest-800: #1c462e;
+  --color-forest-900: #153623;
+
+  --color-clay-50: #faf8f5;
+  --color-clay-100: #f0ece7;
+  --color-clay-200: #e3dbd2;
+  --color-clay-300: #d1c6bb;
+  --color-clay-400: #b8ab9d;
+  --color-clay-500: #9e8f7f;
+  --color-clay-600: #857667;
+  --color-clay-700: #6b5e55;
+  --color-clay-800: #554a42;
+  --color-clay-900: #423a34;
+
+  --color-error: #c75146;
+  --color-error-bg: #fdf4f0;
+  --color-success: #3d8b5e;
+  --color-success-bg: #f0f7f3;
+
+  --color-border: #e3dbd2;
 }
 
 @layer base {
@@ -40,22 +77,30 @@
   body {
     margin: 0;
     min-height: 100vh;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  .dark body,
+  body.dark {
+    background-color: #1c1917;
+    color: #f5f0eb;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand-500);
+    outline: 2px solid var(--color-rust-500);
     outline-offset: 2px;
     border-radius: 4px;
   }
 
   ::selection {
-    background-color: var(--color-brand-200);
-    color: var(--color-brand-900);
+    background-color: var(--color-rust-200);
+    color: var(--color-rust-900);
   }
 
   .dark ::selection {
-    background-color: var(--color-brand-800);
-    color: var(--color-brand-100);
+    background-color: var(--color-rust-800);
+    color: var(--color-rust-100);
   }
 }
 
@@ -63,12 +108,17 @@
   scrollbar-width: thin;
 }
 
-.role-search-dropdown {
-  animation: roleDropdownSlideIn 0.15s ease-out;
-  backdrop-filter: blur(8px);
+@utility heading {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-@keyframes roleDropdownSlideIn {
+.role-search-dropdown {
+  animation: dropdownIn 0.15s ease-out;
+}
+
+@keyframes dropdownIn {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -88,12 +138,12 @@
 }
 
 .role-search-dropdown::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.4);
+  background-color: rgba(158, 143, 127, 0.3);
   border-radius: 3px;
 }
 
 .role-search-dropdown::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.6);
+  background-color: rgba(158, 143, 127, 0.5);
 }
 
 @keyframes shimmer {
@@ -102,12 +152,16 @@
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, #f0ece7 25%, #e3dbd2 50%, #f0ece7 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
 .dark .skeleton {
-  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+  background: linear-gradient(90deg, #292524 25%, #3d3632 50%, #292524 75%);
   background-size: 200% 100%;
+}
+
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
 }
