@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   RefreshCw,
   GraduationCap,
   Code2,
