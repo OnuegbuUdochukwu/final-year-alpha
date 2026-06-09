@@ -5,11 +5,15 @@ import { Eye, Sparkles, TrendingUp, Award, Star, Target } from 'lucide-react';
 interface PredictedResumeProps {
   currentSkills: { name: string; confidence: number }[];
   pathData: any;
+  targetRole?: string;
 }
 
-const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathData }) => {
-  const targetRole = pathData?.target_skill ?? pathData?.target_role ?? 'Target Role';
+const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathData, targetRole = 'Target Role' }) => {
   const roadmapNodes = pathData?.nodes ?? [];
+
+  const totalNewSkills = useMemo(() => {
+    return pathData?.milestones?.reduce((acc: number, curr: any) => acc + (curr.skills?.length || 0), 0) || 0;
+  }, [pathData]);
 
   const futureSkills = useMemo(() => {
     const currentSkillNames = new Set(currentSkills.map((s) => s.name.toLowerCase()));
@@ -90,7 +94,7 @@ const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathDa
             <StatCard
               icon={TrendingUp}
               label="Skills Gained"
-              value={`+${futureSkills.length}`}
+              value={`+${totalNewSkills}`}
               subtext="New competencies"
               color="rust"
             />
@@ -138,7 +142,7 @@ const PredictedResume: React.FC<PredictedResumeProps> = ({ currentSkills, pathDa
               <div>
                 <p className="text-sm font-bold text-forest-800">Career Trajectory Snapshot</p>
                 <p className="text-xs text-forest-700 mt-1 font-[450] leading-relaxed">
-                  With your current {currentSkills.length} skills and {futureSkills.length} additional competencies gained,
+                  With your current {currentSkills.length} skills and {totalNewSkills} additional competencies gained,
                   you will be well positioned for <strong>{targetRole}</strong> roles. The projected salary range
                   reflects market data for this career level in your region.
                 </p>

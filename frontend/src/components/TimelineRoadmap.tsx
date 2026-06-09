@@ -15,6 +15,7 @@ import {
 
 interface TimelineRoadmapProps {
   pathData: any;
+  targetRole?: string;
   onStepCompleted: (skill: string) => void;
   isRecalculating: boolean;
   knownSkills: string[];
@@ -22,6 +23,7 @@ interface TimelineRoadmapProps {
 
 const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   pathData,
+  targetRole = 'Career Goal',
   onStepCompleted,
   isRecalculating,
   knownSkills = [],
@@ -56,7 +58,21 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
     });
   }, [pathData, knownSkills]);
 
-  const targetRole = pathData?.target_skill ?? pathData?.target_role ?? 'Career Goal';
+  const [checkedCounts, setCheckedCounts] = useState<Record<number, number>>({});
+  
+  const handleCheckedCountChange = useCallback((id: number, count: number) => {
+    setCheckedCounts(prev => {
+      if (prev[id] === count) return prev;
+      return { ...prev, [id]: count };
+    });
+  }, []);
+
+  const totalRequiredSkills = useMemo(() => {
+    return pathData?.milestones?.reduce((acc: number, curr: any) => acc + (curr.skills?.length || 0), 0) || 0;
+  }, [pathData]);
+
+  const totalCheckedSkills = Object.values(checkedCounts).reduce((a, b) => a + b, 0);
+  const isRoadmapComplete = totalRequiredSkills > 0 && totalCheckedSkills >= totalRequiredSkills;
 
   const handleToggleComplete = useCallback((nodeId: number) => {
     const node = roadmapNodes[nodeId];
@@ -100,27 +116,30 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                   onToggleComplete={() => handleToggleComplete(node.id)}
                   isRecalculating={isRecalculating}
                   knownSkills={knownSkills}
+                  onCheckedCountChange={(count) => handleCheckedCountChange(node.id, count)}
                 />
               ))}
             </div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8 p-4 bg-gradient-to-br from-gold-50 to-rust-50 border border-gold-200 rounded-xl"
-          >
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-gold-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-gold-800">Congratulations!</p>
-                <p className="text-xs text-gold-700 mt-1 font-[450]">
-                  Completing all steps unlocks your target role as <strong>{targetRole}</strong>. Each completed step refines your path for maximum efficiency.
-                </p>
+          {isRoadmapComplete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 p-4 bg-gradient-to-br from-gold-50 to-rust-50 border border-gold-200 rounded-xl"
+            >
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-gold-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-gold-800">Congratulations!</p>
+                  <p className="text-xs text-gold-700 mt-1 font-[450]">
+                    Completing all steps unlocks your target role as <strong>{targetRole}</strong>. Each completed step refines your path for maximum efficiency.
+                  </p>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -146,6 +165,7 @@ interface RoadmapStepProps {
   onToggleComplete: () => void;
   isRecalculating: boolean;
   knownSkills: string[];
+  onCheckedCountChange: (count: number) => void;
 }
 
 const difficultyColors: Record<string, string> = {
@@ -160,6 +180,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
   onToggleComplete,
   isRecalculating,
   knownSkills,
+  onCheckedCountChange,
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -170,7 +191,10 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
   }, [node.subjects, knownSkills]);
 
   const [checkedSkills, setCheckedSkills] = useState<string[]>(initialChecked);
-  const [isManuallyCompleted, setIsManuallyCompleted] = useState(false);
+
+  React.useEffect(() => {
+    onCheckedCountChange(checkedSkills.length);
+  }, [checkedSkills.length, onCheckedCountChange]);
 
   const handleCheckboxToggle = (name: string) => {
     setCheckedSkills(prev => 
@@ -179,7 +203,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
   };
 
   const totalSkills = node.subjects?.length || 0;
-  const isFullyCompleted = isManuallyCompleted || (totalSkills > 0 && checkedSkills.length === totalSkills);
+  const isFullyCompleted = totalSkills > 0 && checkedSkills.length === totalSkills;
 
   const diffKey = node.difficulty?.toLowerCase() ?? 'intermediate';
   const diffStyle = difficultyColors[diffKey] || difficultyColors.intermediate;
@@ -236,8 +260,13 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => {
-                  setIsManuallyCompleted(!isManuallyCompleted);
-                  onToggleComplete();
+                  if (isFullyCompleted) {
+                    setCheckedSkills([]);
+                  } else {
+                    const allSkills = node.subjects?.map((subj: any) => typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? '')) || [];
+                    setCheckedSkills(allSkills);
+                    onToggleComplete();
+                  }
                 }}
                 disabled={isRecalculating}
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all active:scale-[0.95] disabled:opacity-50 disabled:cursor-wait ${

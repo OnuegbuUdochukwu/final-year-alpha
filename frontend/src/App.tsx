@@ -143,12 +143,17 @@ function App() {
               <div ref={roadmapRef} className="scroll-mt-6">
                 <TimelineRoadmap
                   pathData={pathData}
+                  targetRole={pathData?.target_role ?? pathData?.target_skill ?? currentTarget ?? 'Career Goal'}
                   onStepCompleted={handleStepCompleted}
                   isRecalculating={isRecalculating}
                   knownSkills={parsedSkills.map(s => s.name)}
                 />
               </div>
-              <PredictedResume currentSkills={parsedSkills} pathData={pathData} />
+              <PredictedResume 
+                currentSkills={parsedSkills} 
+                pathData={pathData} 
+                targetRole={pathData?.target_role ?? pathData?.target_skill ?? currentTarget ?? 'Target Role'}
+              />
 
               {token && (
                 <motion.div
