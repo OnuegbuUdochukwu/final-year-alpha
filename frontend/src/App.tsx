@@ -53,19 +53,23 @@ function App() {
   const handleStepCompleted = useCallback(async (completedSkill: string) => {
     setCurrentStart(completedSkill);
 
+    // Immediately update local skills to trigger UI checked states
+    setParsedSkills(prev => {
+      if (prev.some(s => s.name === completedSkill)) return prev;
+      return [...prev, { name: completedSkill, confidence: 100 }];
+    });
+
     if (!currentTarget) return;
 
     setIsRecalculating(true);
     try {
-      const response = await client.get('/api/find-path', {
-        params: {
-          start: completedSkill,
-          target: currentTarget,
-        },
+      // Ping the backend to persist the completion, but DO NOT overwrite pathData 
+      // with a different payload shape (which causes the timeline to disappear)
+      await client.post('/api/complete-step', {
+        skill_name: completedSkill
       });
-      setPathData(response.data);
     } catch (err: any) {
-      console.error('Recalculation error:', err.response?.data?.detail ?? err.message);
+      console.error('Completion sync error:', err.response?.data?.detail ?? err.message);
     } finally {
       setIsRecalculating(false);
     }
