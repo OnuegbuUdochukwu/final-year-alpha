@@ -82,7 +82,7 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
           skills: resumeSkills?.join(','),
         },
       });
-      onPathFound(response.data);
+      onPathFound({ ...response.data, target_role: selectedRole });
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(detail || 'Failed to find a path. Please try a different role.');
