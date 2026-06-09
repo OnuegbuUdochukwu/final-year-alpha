@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Code2,
 } from 'lucide-react';
+import Congratulations from './Congratulations';
 
 interface TimelineRoadmapProps {
   pathData: any;
@@ -123,22 +124,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
           </div>
 
           {isRoadmapComplete && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-8 p-4 bg-gradient-to-br from-gold-50 to-rust-50 border border-gold-200 rounded-xl"
-            >
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-gold-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-gold-800">Congratulations!</p>
-                  <p className="text-xs text-gold-700 mt-1 font-[450]">
-                    Completing all steps unlocks your target role as <strong>{targetRole}</strong>. Each completed step refines your path for maximum efficiency.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
+            <Congratulations targetRole={pathData?.target_role ?? pathData?.target_skill ?? targetRole} />
           )}
         </div>
       </div>
