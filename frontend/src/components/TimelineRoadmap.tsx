@@ -116,7 +116,7 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
                   onToggleComplete={() => handleToggleComplete(node.id)}
                   isRecalculating={isRecalculating}
                   knownSkills={knownSkills}
-                  onCheckedCountChange={(count) => handleCheckedCountChange(node.id, count)}
+                  onCheckedCountChange={handleCheckedCountChange}
                 />
               ))}
             </div>
@@ -150,7 +150,7 @@ interface RoadmapStepProps {
   onToggleComplete: () => void;
   isRecalculating: boolean;
   knownSkills: string[];
-  onCheckedCountChange: (count: number) => void;
+  onCheckedCountChange: (id: number, count: number) => void;
 }
 
 const difficultyColors: Record<string, string> = {
@@ -171,20 +171,36 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
 
   const initialChecked = useMemo(() => {
     return (node.subjects || [])
-      .map((subj: any) => typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? ''))
-      .filter((name: string) => knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase()));
+      .map((subj: any) => typeof subj === 'string' ? subj : (subj?.name ?? subj?.title ?? ''))
+      .filter((name: string) => name && knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase()));
   }, [node.subjects, knownSkills]);
 
   const [checkedSkills, setCheckedSkills] = useState<string[]>(initialChecked);
 
   React.useEffect(() => {
-    onCheckedCountChange(checkedSkills.length);
-  }, [checkedSkills.length, onCheckedCountChange]);
+    onCheckedCountChange(node.id, checkedSkills.length);
+  }, [node.id, checkedSkills.length, onCheckedCountChange]);
 
   const handleCheckboxToggle = (name: string) => {
+    if (!name) return;
     setCheckedSkills(prev => 
       prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
     );
+  };
+
+  const handleCompleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isFullyCompleted) {
+      setCheckedSkills([]);
+    } else {
+      // Safe fallback to extract string array
+      const allSkills = (node.subjects || [])
+        .map((subj: any) => typeof subj === 'string' ? subj : (subj?.name ?? subj?.title ?? ''))
+        .filter(Boolean); // guarantees no undefined/null/empty strings
+      
+      setCheckedSkills(allSkills);
+      onToggleComplete();
+    }
   };
 
   const totalSkills = node.subjects?.length || 0;
@@ -244,15 +260,7 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => {
-                  if (isFullyCompleted) {
-                    setCheckedSkills([]);
-                  } else {
-                    const allSkills = node.subjects?.map((subj: any) => typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? '')) || [];
-                    setCheckedSkills(allSkills);
-                    onToggleComplete();
-                  }
-                }}
+                onClick={handleCompleteClick}
                 disabled={isRecalculating}
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all active:scale-[0.95] disabled:opacity-50 disabled:cursor-wait ${
                   isFullyCompleted 
@@ -293,7 +301,8 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
                 </p>
                 <div className="space-y-1.5">
                   {node.subjects.map((subj: any, idx: number) => {
-                    const name = typeof subj === 'string' ? subj : (subj.name ?? subj.title ?? '');
+                    const name = typeof subj === 'string' ? subj : (subj?.name ?? subj?.title ?? '');
+                    if (!name) return null;
                     const isChecked = checkedSkills.includes(name);
                     return (
                       <label
