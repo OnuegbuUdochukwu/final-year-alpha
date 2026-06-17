@@ -33,6 +33,13 @@ interface ExperienceEntry {
   description: string;
 }
 
+interface EduEntry {
+  id: string;
+  degree: string;
+  school: string;
+  years: string;
+}
+
 interface ProjectEntry {
   id: string;
   name: string;
@@ -54,7 +61,7 @@ interface ResumeState {
   location: string;
   linkedin: string;
   summary: string;
-  education: string;
+  education: EduEntry[];
   experience: ExperienceEntry[];
   projects: ProjectEntry[];
   certifications: CertEntry[];
@@ -154,7 +161,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     ...newRoadmapSkills.filter(s => !cvSkills.includes(s)),
   ];
 
-  const [resume, setResume] = useState<ResumeState>({
+  const [originalData, setOriginalData] = useState<ResumeState>({
     name: 'Your Full Name',
     title: targetRole || 'Professional',
     email: 'email@example.com',
@@ -163,7 +170,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     summary: `Results-driven professional seeking a ${targetRole} position, leveraging expertise in ${
       cvSkills.slice(0, 3).join(', ') || 'various skills'
     } to drive impactful outcomes.`,
-    education: 'Bachelor of Science in Computer Science\nUniversity of Nigeria, Nsukka\n2020 – 2024',
+    education: [
+      { id: 'edu-1', degree: 'Bachelor of Science in Computer Science', school: 'University of Nigeria, Nsukka', years: '2020 – 2024' }
+    ],
     experience: [],
     projects: [],
     certifications: courses.slice(0, 3).map((c, i) => ({
@@ -186,10 +195,11 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       try {
         const bio = await getUserBiography(token);
         if (cancelled) return;
-        setResume(prev => ({
+        setOriginalData(prev => ({
           ...prev,
           summary: bio.summary || prev.summary,
-          education: bio.education || prev.education,
+          // Since the deterministic parser returns a single string, we map it to the first education block
+          education: bio.education ? [{ id: uid('edu'), degree: 'Degree', school: bio.education, years: 'Year' }] : prev.education,
         }));
       } catch {
         // Graceful: keep placeholder text
@@ -202,12 +212,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
 
   // ── Simple field updaters ─────────────────────────────────────────────────
   const set = useCallback(<K extends keyof ResumeState>(field: K, value: ResumeState[K]) => {
-    setResume(prev => ({ ...prev, [field]: value }));
+    setOriginalData(prev => ({ ...prev, [field]: value }));
   }, []);
 
   // ── Experience ────────────────────────────────────────────────────────────
   const addExperience = useCallback(() => {
-    setResume(prev => ({
+    setOriginalData(prev => ({
       ...prev,
       experience: [
         ...prev.experience,
@@ -217,19 +227,41 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   }, []);
 
   const updateExp = useCallback((id: string, field: keyof ExperienceEntry, value: string) => {
-    setResume(prev => ({
+    setOriginalData(prev => ({
       ...prev,
       experience: prev.experience.map(e => e.id === id ? { ...e, [field]: value } : e),
     }));
   }, []);
 
   const removeExp = useCallback((id: string) => {
-    setResume(prev => ({ ...prev, experience: prev.experience.filter(e => e.id !== id) }));
+    setOriginalData(prev => ({ ...prev, experience: prev.experience.filter(e => e.id !== id) }));
+  }, []);
+
+  // ── Education (Array mapped) ──────────────────────────────────────────────
+  const addEducation = useCallback(() => {
+    setOriginalData(prev => ({
+      ...prev,
+      education: [
+        ...prev.education,
+        { id: uid('edu'), degree: 'New Degree', school: 'Institution', years: 'Year' },
+      ],
+    }));
+  }, []);
+
+  const updateEdu = useCallback((id: string, field: keyof EduEntry, value: string) => {
+    setOriginalData(prev => ({
+      ...prev,
+      education: prev.education.map(e => e.id === id ? { ...e, [field]: value } : e),
+    }));
+  }, []);
+
+  const removeEdu = useCallback((id: string) => {
+    setOriginalData(prev => ({ ...prev, education: prev.education.filter(e => e.id !== id) }));
   }, []);
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const addProject = useCallback(() => {
-    setResume(prev => ({
+    setOriginalData(prev => ({
       ...prev,
       projects: [
         ...prev.projects,
@@ -239,26 +271,26 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   }, []);
 
   const updateProj = useCallback((id: string, field: keyof ProjectEntry, value: string) => {
-    setResume(prev => ({
+    setOriginalData(prev => ({
       ...prev,
       projects: prev.projects.map(p => p.id === id ? { ...p, [field]: value } : p),
     }));
   }, []);
 
   const removeProj = useCallback((id: string) => {
-    setResume(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== id) }));
+    setOriginalData(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== id) }));
   }, []);
 
   // ── Certifications ────────────────────────────────────────────────────────
   const updateCert = useCallback((id: string, field: keyof CertEntry, value: string) => {
-    setResume(prev => ({
+    setOriginalData(prev => ({
       ...prev,
       certifications: prev.certifications.map(c => c.id === id ? { ...c, [field]: value } : c),
     }));
   }, []);
 
   const removeCert = useCallback((id: string) => {
-    setResume(prev => ({ ...prev, certifications: prev.certifications.filter(c => c.id !== id) }));
+    setOriginalData(prev => ({ ...prev, certifications: prev.certifications.filter(c => c.id !== id) }));
   }, []);
 
   // ── Download ──────────────────────────────────────────────────────────────
@@ -267,13 +299,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     setError(null);
     try {
       await downloadResume(token, {
-        name: resume.name,
-        title: resume.title,
-        email: resume.email,
-        location: resume.location,
-        linkedin: resume.linkedin,
-        summary: resume.summary,
-        education: resume.education,
+        name: originalData.name,
+        title: originalData.title,
+        email: originalData.email,
+        location: originalData.location,
+        linkedin: originalData.linkedin,
+        summary: originalData.summary,
+        education: originalData.education.map(e => `${e.degree} | ${e.school} (${e.years})`).join('\n\n'),
         cv_skills: cvSkills,
         gained_skills: newRoadmapSkills,
         target_role: targetRole,
@@ -284,7 +316,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [token, resume, cvSkills, newRoadmapSkills, targetRole, courses]);
+  }, [token, originalData, cvSkills, newRoadmapSkills, targetRole, courses]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -377,6 +409,15 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
             </button>
 
             <button
+              onClick={addEducation}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all text-left group"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+              <Plus className="w-2.5 h-2.5 text-gray-300" />
+              Education
+            </button>
+
+            <button
               onClick={addProject}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all text-left group"
             >
@@ -428,21 +469,21 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               <div className="border-b-2 border-indigo-600 pb-5 mb-7">
                 <Editable
                   as="h1"
-                  value={resume.name}
+                  value={originalData.name}
                   placeholder="Your Full Name"
                   onSave={v => set('name', v)}
                   className="text-3xl font-bold text-gray-900 tracking-tight"
                 />
                 <Editable
-                  value={resume.title}
+                  value={originalData.title}
                   placeholder="Professional Title"
                   onSave={v => set('title', v)}
                   className="text-base font-semibold text-indigo-600 mt-1"
                 />
                 <div className="flex flex-wrap gap-x-6 mt-2 text-xs text-gray-500">
-                  <Editable value={resume.email} placeholder="email@example.com" onSave={v => set('email', v)} />
-                  <Editable value={resume.location} placeholder="City, Country" onSave={v => set('location', v)} />
-                  <Editable value={resume.linkedin} placeholder="linkedin.com/in/..." onSave={v => set('linkedin', v)} />
+                  <Editable value={originalData.email} placeholder="email@example.com" onSave={v => set('email', v)} />
+                  <Editable value={originalData.location} placeholder="City, Country" onSave={v => set('location', v)} />
+                  <Editable value={originalData.linkedin} placeholder="linkedin.com/in/..." onSave={v => set('linkedin', v)} />
                 </div>
               </div>
 
@@ -457,7 +498,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 ) : (
                   <Editable
                     as="p"
-                    value={resume.summary}
+                    value={originalData.summary}
                     placeholder="Write your professional summary..."
                     onSave={v => set('summary', v)}
                     multiline
@@ -474,22 +515,39 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                     <div className="skeleton h-3 rounded w-1/2" />
                   </div>
                 ) : (
-                  <Editable
-                    as="p"
-                    value={resume.education}
-                    placeholder="Degree · Institution · Year"
-                    onSave={v => set('education', v)}
-                    multiline
-                    className="text-sm text-gray-700 leading-relaxed min-h-[36px] whitespace-pre-wrap"
-                  />
+                  <div className="space-y-4">
+                    {originalData.education.map((edu, index) => (
+                      <div key={edu.id || index} className="mb-4 relative group">
+                        <button
+                          onClick={() => removeEdu(edu.id)}
+                          className="absolute -right-5 top-0 opacity-0 group-hover:opacity-100 p-1 rounded text-gray-300 hover:text-red-400 transition-all"
+                          aria-label="Remove education"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <Editable
+                          as="h3"
+                          value={edu.degree}
+                          placeholder="Degree"
+                          onSave={v => updateEdu(edu.id, 'degree', v)}
+                          className="text-sm font-bold text-gray-900"
+                        />
+                        <div className="flex gap-1 text-sm text-gray-700 mt-1">
+                          <Editable value={edu.school} placeholder="Institution" onSave={v => updateEdu(edu.id, 'school', v)} />
+                          <span>|</span>
+                          <Editable value={edu.years} placeholder="Years" onSave={v => updateEdu(edu.id, 'years', v)} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </PaperSection>
 
               {/* ── Experience ── */}
-              {resume.experience.length > 0 && (
+              {originalData.experience.length > 0 && (
                 <PaperSection title="Experience">
                   <div className="space-y-5">
-                    {resume.experience.map(exp => (
+                    {originalData.experience.map(exp => (
                       <div key={exp.id} className="relative group">
                         <button
                           onClick={() => removeExp(exp.id)}
@@ -533,10 +591,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               )}
 
               {/* ── Projects ── */}
-              {resume.projects.length > 0 && (
+              {originalData.projects.length > 0 && (
                 <PaperSection title="Projects">
                   <div className="space-y-4">
-                    {resume.projects.map(proj => (
+                    {originalData.projects.map(proj => (
                       <div key={proj.id} className="relative group">
                         <button
                           onClick={() => removeProj(proj.id)}
@@ -599,10 +657,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               </PaperSection>
 
               {/* ── Certifications ── */}
-              {resume.certifications.length > 0 && (
+              {originalData.certifications.length > 0 && (
                 <PaperSection title="Certifications & Training">
                   <ul className="space-y-2">
-                    {resume.certifications.map(cert => (
+                    {originalData.certifications.map(cert => (
                       <li key={cert.id} className="relative group flex justify-between items-start gap-4">
                         <button
                           onClick={() => removeCert(cert.id)}
