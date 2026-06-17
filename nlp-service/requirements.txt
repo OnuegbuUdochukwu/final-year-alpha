@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 requests
-PyMuPDF
+pdf2docx
 python-docx
 python-dotenv
 prometheus_fastapi_instrumentator
