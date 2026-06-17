@@ -89,7 +89,7 @@ const EditableBlock = React.memo(function EditableBlock({
   onSave: (text: string) => void;
   className?: string;
   multiline?: boolean;
-  tag?: keyof JSX.IntrinsicElements;
+  tag?: 'div' | 'p' | 'h1' | 'h2' | 'h3' | 'span';
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -163,7 +163,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [biographyLoading, setBiographyLoading] = useState(true);
-  const [activePanel, setActivePanel] = useState<'canvas' | 'add'>('canvas');
 
   // ── Biography fetch on mount ───────────────────────────────────────────────
   useEffect(() => {
