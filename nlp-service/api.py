@@ -91,7 +91,8 @@ async def parse_resume(file: UploadFile = File(...)):
         '  "skills": ["Skill 1", "Skill 2"]\n'
         "}\n\n"
         "IMPORTANT RULES:\n"
-        "- CRITICAL: You must strictly maintain the boundaries between different jobs and volunteering roles. Associate bullet points ONLY with the specific Job Title and Company that immediately precedes them in the text. Do not let bullet points from one role bleed into another.\n"
+        "- CRITICAL INSTRUCTION FOR EXPERIENCE EXTRACTION: You must strictly maintain the boundaries between different jobs. Associate bullet points ONLY with the specific Job Title and Company that immediately precedes them in the text. You must stop adding bullet points to a job the moment you encounter a new Company Name, Job Title, or Date range. Do not let bullet points from a older role bleed into a newer role.\n"
+        "- Each individual item in the 'experience' array MUST have its own correctly populated 'duties' array containing ONLY its respective bullet points.\n"
         "- If the contact information (email, phone) is mashed together or contains typos, do your best to separate them into the 'email' and 'phone' keys.\n"
         "- If a 'Summary' section exists, prioritize it over 'Volunteering' for the 'summary' key.\n"
         "Return ONLY the raw JSON object. Do not include markdown formatting like ```json or any explanation.\n\n"
