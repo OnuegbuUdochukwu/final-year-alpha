@@ -91,6 +91,7 @@ async def parse_resume(file: UploadFile = File(...)):
         '  "skills": ["Skill 1", "Skill 2"]\n'
         "}\n\n"
         "IMPORTANT RULES:\n"
+        "- CRITICAL: You must strictly maintain the boundaries between different jobs and volunteering roles. Associate bullet points ONLY with the specific Job Title and Company that immediately precedes them in the text. Do not let bullet points from one role bleed into another.\n"
         "- If the contact information (email, phone) is mashed together or contains typos, do your best to separate them into the 'email' and 'phone' keys.\n"
         "- If a 'Summary' section exists, prioritize it over 'Volunteering' for the 'summary' key.\n"
         "Return ONLY the raw JSON object. Do not include markdown formatting like ```json or any explanation.\n\n"
@@ -149,7 +150,7 @@ async def parse_resume(file: UploadFile = File(...)):
                 normalized_text = query_llm_standard(
                     prompt=normalization_prompt,
                     model="meta-llama/Meta-Llama-3-8B-Instruct",
-                    max_new_tokens=3000,
+                    max_new_tokens=1500,
                 )
 
                 try:
