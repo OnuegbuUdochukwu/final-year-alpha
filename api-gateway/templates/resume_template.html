@@ -223,9 +223,11 @@
     <h1>{{ name }}</h1>
     <div class="title">{{ title }}</div>
     <div class="contact">
-      {% if email %}<span>{{ email }}</span>{% endif %}
-      {% if linkedin %}<span>{{ linkedin }}</span>{% endif %}
-      {% if location %}<span>{{ location }}</span>{% endif %}
+      <p>
+        {% if email %}{{ email }} | {% endif %}
+        {% if linkedin %}{{ linkedin }} | {% endif %}
+        {% if location %}{{ location }}{% endif %}
+      </p>
     </div>
   </div>
 
@@ -249,22 +251,22 @@
   {% if experience %}
   <div class="section">
     <div class="section-title">Experience</div>
-    {% for job in experience %}
+    {% for exp in experience %}
     <div class="experience-item">
       <div class="experience-header">
         <div>
-          <span class="experience-title">{{ job.title }}</span>
-          {% if job.company %}
-          <span class="experience-company"> at {{ job.company }}</span>
+          <span class="experience-title">{{ exp.title }}</span>
+          {% if exp.company %}
+          <span class="experience-company">, {{ exp.company }}</span>
           {% endif %}
         </div>
         <div class="experience-meta">
-          {{ job.dates }} {% if job.location %}| {{ job.location }}{% endif %}
+          {{ exp.dates }} {% if exp.location %}| {{ exp.location }}{% endif %}
         </div>
       </div>
-      {% if job.duties %}
+      {% if exp.duties %}
       <ul class="experience-duties">
-        {% for duty in job.duties %}
+        {% for duty in exp.duties %}
         <li>{{ duty }}</li>
         {% endfor %}
       </ul>

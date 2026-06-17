@@ -23,8 +23,8 @@ class DocumentExtractor:
                 # blocks is a list of tuples: (x0, y0, x1, y1, "text", block_no, block_type)
                 # block_type 0 is text.
                 text_only = [b for b in blocks if b[6] == 0]
-                # Sort blocks by vertical position (rounded to group rows), then by horizontal position
-                text_only.sort(key=lambda b: (round(b[1] / 10), b[0]))
+                # Sort blocks by horizontal position first (to group columns), then vertical position
+                text_only.sort(key=lambda b: (b[0], b[1]))
                 
                 for b in text_only:
                     text_blocks.append(b[4].strip())
