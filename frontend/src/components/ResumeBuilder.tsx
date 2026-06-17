@@ -22,28 +22,34 @@ interface EduEntry {
   id: string;
   degree: string;
   school: string;
-  date: string;
   location: string;
+  dates: string;
 }
 
 interface ExperienceEntry {
   id: string;
   title: string;
   company: string;
-  date: string;
   location: string;
+  dates: string;
   duties: string[];
+}
+
+interface ContactState {
+  email: string;
+  phone: string;
+  location: string;
+  linkedin: string;
 }
 
 interface ResumeState {
   name: string;
   title: string;
-  email: string;
-  phone: string;
-  location: string;
+  contact: ContactState;
   summary: string;
   education: EduEntry[];
   experience: ExperienceEntry[];
+  skills: string[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -126,14 +132,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   ];
 
   const [fullResumeData, setFullResumeData] = useState<ResumeState>({
-    name: 'Your Full Name',
-    title: targetRole || 'Professional',
-    email: 'email@example.com',
-    phone: '555-0123',
-    location: 'City, Country',
-    summary: `Results-driven professional seeking a ${targetRole} position.`,
+    name: '',
+    title: targetRole || '',
+    contact: { email: '', phone: '', location: '', linkedin: '' },
+    summary: '',
     education: [],
     experience: [],
+    skills: [],
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -151,10 +156,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
         setFullResumeData(prev => ({
           ...prev,
           name: bio.name || prev.name,
-          email: bio.email || prev.email,
-          phone: bio.phone || prev.phone,
-          location: bio.location || prev.location,
           title: bio.title || prev.title,
+          contact: {
+            email: bio.contact?.email || prev.contact.email,
+            phone: bio.contact?.phone || prev.contact.phone,
+            location: bio.contact?.location || prev.contact.location,
+            linkedin: bio.contact?.linkedin || prev.contact.linkedin,
+          },
           summary: bio.summary || prev.summary,
           education: bio.education && bio.education.length > 0 
             ? bio.education.map((e: any) => ({ ...e, id: uid('edu') })) 
@@ -162,6 +170,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           experience: bio.experience && bio.experience.length > 0
             ? bio.experience.map((e: any) => ({ ...e, id: uid('exp') }))
             : prev.experience,
+          skills: bio.skills || prev.skills,
         }));
       } catch {
         // Graceful fallback
@@ -175,6 +184,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   // ── Simple field updaters ─────────────────────────────────────────────────
   const set = useCallback(<K extends keyof ResumeState>(field: K, value: ResumeState[K]) => {
     setFullResumeData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const setContact = useCallback((field: keyof ContactState, value: string) => {
+    setFullResumeData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   }, []);
 
   const updateExp = useCallback((id: string, field: keyof ExperienceEntry, value: string) => {
@@ -211,11 +224,11 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       await downloadResume(token, {
         name: fullResumeData.name,
         title: fullResumeData.title,
-        email: fullResumeData.email,
-        location: fullResumeData.location,
-        linkedin: fullResumeData.phone, // mapping phone to linkedin placeholder in backend
+        email: fullResumeData.contact.email,
+        location: fullResumeData.contact.location,
+        linkedin: fullResumeData.contact.linkedin || fullResumeData.contact.phone, // mapping phone to linkedin placeholder in backend
         summary: fullResumeData.summary,
-        education: fullResumeData.education.map(e => `${e.date}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
+        education: fullResumeData.education.map(e => `${e.dates}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
         cv_skills: cvSkills,
         gained_skills: newRoadmapSkills,
         target_role: targetRole,
@@ -278,11 +291,11 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               
               {/* Contact Line - merged into one paragraph block but using span chunks to remain atomic if desired. For simplicity, binding the whole string to one Editable. */}
               <div className="text-sm text-center mt-1 flex justify-center gap-1">
-                <Editable as="span" value={fullResumeData.email} placeholder="Email" onSave={v => set('email', v)} />
+                <Editable as="span" value={fullResumeData.contact.email} placeholder="Email" onSave={v => setContact('email', v)} />
                 <span>|</span>
-                <Editable as="span" value={fullResumeData.phone} placeholder="Phone" onSave={v => set('phone', v)} />
+                <Editable as="span" value={fullResumeData.contact.phone} placeholder="Phone" onSave={v => setContact('phone', v)} />
                 <span>|</span>
-                <Editable as="span" value={fullResumeData.location} placeholder="Location" onSave={v => set('location', v)} />
+                <Editable as="span" value={fullResumeData.contact.location} placeholder="Location" onSave={v => setContact('location', v)} />
               </div>
             </div>
 
@@ -299,10 +312,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 {fullResumeData.experience.map(exp => (
                   <div key={exp.id} className="mb-4">
                     <div className="text-sm font-bold mt-3 flex flex-wrap gap-1">
-                      <Editable as="span" value={exp.date} placeholder="Date" onSave={v => updateExp(exp.id, 'date', v)} />,
                       <Editable as="span" value={exp.title} placeholder="Title" onSave={v => updateExp(exp.id, 'title', v)} />,
                       <Editable as="span" value={exp.company} placeholder="Company" onSave={v => updateExp(exp.id, 'company', v)} />,
-                      <Editable as="span" value={exp.location} placeholder="Location" onSave={v => updateExp(exp.id, 'location', v)} />
+                      <Editable as="span" value={exp.location} placeholder="Location" onSave={v => updateExp(exp.id, 'location', v)} />,
+                      <Editable as="span" value={exp.dates} placeholder="Dates" onSave={v => updateExp(exp.id, 'dates', v)} />
                     </div>
                     {exp.duties.length > 0 && (
                       <ul className="mt-1">
@@ -322,10 +335,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-2 mt-4">Education</h3>
                 {fullResumeData.education.map(edu => (
                   <div key={edu.id} className="text-sm font-bold mt-3 flex flex-wrap gap-1">
-                    <Editable as="span" value={edu.date} placeholder="Date" onSave={v => updateEdu(edu.id, 'date', v)} />,
                     <Editable as="span" value={edu.degree} placeholder="Degree" onSave={v => updateEdu(edu.id, 'degree', v)} />,
                     <Editable as="span" value={edu.school} placeholder="School" onSave={v => updateEdu(edu.id, 'school', v)} />,
-                    <Editable as="span" value={edu.location} placeholder="Location" onSave={v => updateEdu(edu.id, 'location', v)} />
+                    <Editable as="span" value={edu.location} placeholder="Location" onSave={v => updateEdu(edu.id, 'location', v)} />,
+                    <Editable as="span" value={edu.dates} placeholder="Dates" onSave={v => updateEdu(edu.id, 'dates', v)} />
                   </div>
                 ))}
               </div>
