@@ -10,6 +10,37 @@ export interface CourseItem {
   provider?: string;
 }
 
+/**
+ * The biographical data returned by GET /api/user/biography.
+ * These sections are extracted deterministically (no LLM) from the uploaded CV.
+ */
+export interface BiographyData {
+  user_id: string;
+  summary: string;
+  education: string;
+  experience: string;
+}
+
+// ─── API Functions ────────────────────────────────────────────────────────────
+
+/**
+ * Fetches the deterministically extracted biographical data for the current user.
+ * Called by ResumeBuilder on mount to pre-populate Summary and Education fields.
+ * @param token  JWT access token
+ */
+export async function getUserBiography(token: string): Promise<BiographyData> {
+  const resp = await fetch(`${GATEWAY}/api/user/biography`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail ?? "Failed to fetch biography data");
+  }
+
+  return resp.json();
+}
+
 export interface ResumePayload {
   name?: string;
   title?: string;

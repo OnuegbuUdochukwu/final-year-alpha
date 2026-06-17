@@ -13,6 +13,73 @@ from extractor import DocumentExtractor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pre-LLM Chunking: Deterministically parse resume into biographical sections.
+# This avoids spending LLM tokens on structured data that regex can handle.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Ordered list of known resume section headers and their canonical category.
+# Checked in order — first match wins for each line.
+_SECTION_PATTERNS = [
+    (re.compile(r'^(SUMMARY|PROFESSIONAL\s+SUMMARY|PROFILE|CAREER\s+OBJECTIVE|OBJECTIVE|ABOUT\s+ME)\s*$', re.IGNORECASE), 'summary'),
+    (re.compile(r'^(EDUCATION|ACADEMIC\s+BACKGROUND|QUALIFICATIONS|ACADEMIC\s+QUALIFICATIONS)\s*$', re.IGNORECASE), 'education'),
+    (re.compile(r'^(EXPERIENCE|WORK\s+EXPERIENCE|PROFESSIONAL\s+EXPERIENCE|WORK\s+HISTORY|EMPLOYMENT|EMPLOYMENT\s+HISTORY)\s*$', re.IGNORECASE), 'experience'),
+    (re.compile(r'^(SKILLS|TECHNICAL\s+SKILLS|CORE\s+COMPETENCIES|KEY\s+SKILLS|COMPETENCIES)\s*$', re.IGNORECASE), 'skills_section'),
+    (re.compile(r'^(PROJECTS|PERSONAL\s+PROJECTS|NOTABLE\s+PROJECTS)\s*$', re.IGNORECASE), 'projects'),
+    (re.compile(r'^(CERTIFICATIONS?|CERTIFICATES?|LICENSES?\s+&\s+CERTIFICATIONS?)\s*$', re.IGNORECASE), 'certifications'),
+]
+
+
+def chunk_resume_text(raw_text: str) -> dict:
+    """
+    Deterministically splits raw resume text into logical sections using
+    common resume header patterns (all-caps or title-case headings).
+
+    Returns a dict with keys: summary, education, experience.
+    Any unrecognised text before the first header is treated as the summary
+    (common for resumes that open with a name/contact block followed by text).
+    """
+    lines = raw_text.splitlines()
+    sections: dict[str, list[str]] = {
+        'summary': [],
+        'education': [],
+        'experience': [],
+    }
+    current_section: str | None = 'summary'  # Text before the first header → summary
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            # Preserve blank lines within the current section for readability
+            if current_section and sections[current_section] or current_section == 'summary':
+                if current_section in sections:
+                    sections[current_section].append('')
+            continue
+
+        matched_section = None
+        for pattern, section_key in _SECTION_PATTERNS:
+            if pattern.match(stripped):
+                matched_section = section_key
+                break
+
+        if matched_section is not None:
+            # Only track sections we actually store in biography
+            if matched_section in sections:
+                current_section = matched_section
+            else:
+                # Section like skills_section / projects — stop appending to biography sections
+                current_section = None
+        else:
+            if current_section and current_section in sections:
+                sections[current_section].append(stripped)
+
+    # Join and clean up each section
+    return {
+        key: '\n'.join(lines).strip()
+        for key, lines in sections.items()
+    }
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI."""
@@ -60,7 +127,22 @@ async def parse_resume(file: UploadFile = File(...)):
         raise HTTPException(status_code=415, detail="Could not extract text or unsupported format.")
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 2. Phase 1: Resume Extraction via HF Standard Inference API
+    # 2. Phase 1 (Pre-LLM): Deterministic chunking of biographical sections.
+    # This extracts Summary, Education, and Experience without any LLM call,
+    # saving tokens and reducing latency for the skill extraction step below.
+    # ──────────────────────────────────────────────────────────────────────────
+    biography = chunk_resume_text(raw_text)
+    logger.info(
+        f"Pre-LLM chunking complete. "
+        f"summary={len(biography['summary'])} chars, "
+        f"education={len(biography['education'])} chars, "
+        f"experience={len(biography['experience'])} chars."
+    )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3. Phase 2: Skills-only Extraction via HF Standard Inference API.
+    # The LLM is now ONLY asked to identify technical skills — a much simpler
+    # task that requires far fewer tokens than full structured extraction.
     # ──────────────────────────────────────────────────────────────────────────
     from shared.llm_service import query_llm_standard, parse_json_from_llm
 
@@ -68,12 +150,10 @@ async def parse_resume(file: UploadFile = File(...)):
     truncated_text = raw_text[:4000] if len(raw_text) > 4000 else raw_text
 
     extraction_prompt = (
-        "Extract all technical skills from the following resume text. "
-        "Return ONLY a valid JSON object with this schema: "
-        '{ "skills": ["skill1", "skill2"], '
-        '"experience": [{"role": "string", "company": "string", "years": "string"}], '
-        '"education": [{"degree": "string", "institution": "string"}] }. '
-        "Do not include introductory or concluding text.\n\n"
+        "You are a resume parser. Extract all technical skills, tools, programming languages, "
+        "and frameworks mentioned in the resume text below. "
+        "Return ONLY a raw JSON array of strings with no markdown, no explanation, and no extra text. "
+        'Example output: ["Python", "React", "PostgreSQL"]\n\n'
         f"Resume Text:\n{truncated_text}"
     )
 
@@ -81,20 +161,20 @@ async def parse_resume(file: UploadFile = File(...)):
         content = query_llm_standard(
             prompt=extraction_prompt,
             model="meta-llama/Meta-Llama-3-8B-Instruct",
-            max_new_tokens=3000,
+            max_new_tokens=500,  # Skills-only array needs far fewer tokens than full JSON
         )
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
         raise HTTPException(status_code=502, detail=f"Bad Gateway to Hugging Face Inference API: {str(e)}")
 
-    # 3. Parse JSON and transform the skills format for frontend compatibility
+    # 4. Parse the skills-only JSON array and format for frontend compatibility
     try:
-        parsed_data = parse_json_from_llm(content, expect_array=False)
+        # The prompt now asks for a plain array — parse it as such.
+        raw_skills_list = parse_json_from_llm(content, expect_array=True)
 
-        # Format the skills for frontend (which expects list of objects with 'name' and 'confidence')
-        raw_skills = parsed_data.get("skills", [])
+        # Normalise: handle both plain strings and dicts (LLM might still wrap them)
         formatted_skills = []
-        for s in raw_skills:
+        for s in raw_skills_list:
             if isinstance(s, dict) and "name" in s:
                 formatted_skills.append({
                     "name": s["name"],
@@ -106,8 +186,12 @@ async def parse_resume(file: UploadFile = File(...)):
                     "confidence": 0.95
                 })
 
-        parsed_data["skills"] = formatted_skills
-        parsed_data["filename"] = file.filename
+        parsed_data = {
+            "skills": formatted_skills,
+            "filename": file.filename,
+            # Include deterministically extracted biography so the gateway can persist it
+            "biography": biography,
+        }
 
         # ──────────────────────────────────────────────────────────────────────
         # 4. Phase 2: Skill Normalization via HF Standard Inference API
@@ -151,9 +235,21 @@ async def parse_resume(file: UploadFile = File(...)):
 
     except Exception as e:
         logger.error(f"Failed to parse LLM response JSON: {e}. Raw content: {content}")
-        raise HTTPException(status_code=500, detail="Failed to parse structured resume data.")
+        # Even if skill parsing fails, return the biography so the gateway can still persist it
+        return {
+            "skills": [],
+            "filename": file.filename,
+            "biography": biography,
+            "normalized_skills": [],
+            "error": "Could not parse skills from LLM response.",
+        }
 
-    logger.info(f"Successfully parsed resume via LLM. Extracted {len(formatted_skills)} skills.")
+    logger.info(
+        f"Successfully parsed resume. "
+        f"Extracted {len(formatted_skills)} skills. "
+        f"Biography sections: summary={bool(biography['summary'])}, "
+        f"education={bool(biography['education'])}, experience={bool(biography['experience'])}."
+    )
     return parsed_data
 
 if __name__ == "__main__":

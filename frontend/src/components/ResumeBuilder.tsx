@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Download,
@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { getUserBiography } from '../api/resumeApi';
 
 interface ResumeBuilderProps {
   token: string;
@@ -76,7 +77,49 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>('all');
+  const [biographyLoading, setBiographyLoading] = useState(true);
   const resumeRef = useRef<HTMLDivElement>(null);
+
+  // On mount: fetch the deterministically extracted biography from the database
+  // and overwrite the placeholder summary / education entries if real data exists.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBiography() {
+      setBiographyLoading(true);
+      try {
+        const bio = await getUserBiography(token);
+
+        if (cancelled) return;
+
+        setEntries(prev => prev.map(entry => {
+          if (entry.id === 'summary-1' && bio.summary) {
+            return { ...entry, content: bio.summary };
+          }
+          if (entry.id === 'education-1' && bio.education) {
+            // Try to split education text into degree / institution / date
+            // by taking the first line as the degree and subsequent lines as institution.
+            const eduLines = bio.education.split('\n').map(l => l.trim()).filter(Boolean);
+            return {
+              ...entry,
+              content: eduLines[0] ?? entry.content,
+              subtitle: eduLines[1] ?? entry.subtitle,
+              date: eduLines[2] ?? entry.date,
+            };
+          }
+          return entry;
+        }));
+      } catch {
+        // Graceful fallback — keep the generated placeholder text
+        console.info('[ResumeBuilder] Biography fetch failed; using placeholder defaults.');
+      } finally {
+        if (!cancelled) setBiographyLoading(false);
+      }
+    }
+
+    loadBiography();
+    return () => { cancelled = true; };
+  }, [token]);
 
   const addEntry = (type: ResumeEntry['type']) => {
     const newEntry: ResumeEntry = {
@@ -231,6 +274,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 onMove={moveEntry}
                 expanded={expandedSection === 'all' || expandedSection === entry.id}
                 onToggleExpand={() => toggleSection(entry.id)}
+                isLoading={biographyLoading && (entry.id === 'summary-1' || entry.id === 'education-1')}
               />
             ))}
 
@@ -291,6 +335,8 @@ interface ResumeEntryEditorProps {
   onMove: (index: number, direction: 'up' | 'down') => void;
   expanded: boolean;
   onToggleExpand: () => void;
+  /** True while the biography API call is in-flight — shows a loading shimmer */
+  isLoading?: boolean;
 }
 
 const typeLabels: Record<string, string> = {
@@ -311,11 +357,21 @@ const ResumeEntryEditor: React.FC<ResumeEntryEditorProps> = ({
   onMove,
   expanded,
   onToggleExpand,
+  isLoading = false,
 }) => {
   const inputClass = "w-full px-3 py-2 rounded-lg border border-clay-300 bg-white text-ink text-sm placeholder-clay-400 focus:outline-none focus:ring-2 focus:ring-rust-500 focus:border-rust-500 transition-all";
 
   return (
-    <div className="border border-clay-200 rounded-xl overflow-hidden bg-white">
+    <div className="border border-clay-200 rounded-xl overflow-hidden bg-white relative">
+      {/* Loading shimmer overlay for biography sections */}
+      {isLoading && (
+        <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
+          <div className="flex items-center gap-2 text-clay-400 text-xs font-medium">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-rust-400" />
+            Loading from your CV…
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 px-3 py-2.5 bg-clay-50 border-b border-clay-100">
         <div className="flex items-center gap-1.5">
           <button

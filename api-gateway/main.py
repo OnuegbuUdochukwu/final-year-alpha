@@ -138,6 +138,18 @@ def _ensure_milestone_feedback_table(cur):
     """)
 
 
+def _ensure_users_biography_column(cur):
+    """
+    Idempotently adds the biography_json column to the users table.
+    Uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS so it is safe to run on
+    every startup against an existing production database.
+    """
+    cur.execute("""
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS biography_json JSONB DEFAULT '{}'::jsonb;
+    """)
+
+
 def _validate_role_with_llm(query: str) -> str | None:
     """
     Calls the HuggingFace Inference API to verify if the query is a valid
@@ -253,7 +265,7 @@ async def proxy_parse_resume(request: Request, _user=Depends(verify_token)):
         try:
             resp_data = resp.json()
             
-            # --- 2. Intercept and Save to Supabase (New Logic) ---
+            # --- 2. Intercept and Save to Supabase (saves skills + biography) ---
             if resp.status_code == 200:
                 import json
                 user_id = _user.get("sub", "anonymous")
@@ -261,16 +273,28 @@ async def proxy_parse_resume(request: Request, _user=Depends(verify_token)):
                     conn = _get_pg_conn()
                     cur = conn.cursor()
                     email = _user.get("email", f"{user_id}@placeholder.com")
+
+                    # Ensure the biography_json column exists before writing to it
+                    _ensure_users_biography_column(cur)
+
+                    # Extract the biography chunk returned by the NLP service
+                    biography_data = resp_data.get("biography", {})
+
                     cur.execute("""
-                        INSERT INTO users (firebase_uid, email, current_skills_json)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO users (firebase_uid, email, current_skills_json, biography_json)
+                        VALUES (%s, %s, %s, %s)
                         ON CONFLICT (firebase_uid) DO UPDATE 
-                        SET current_skills_json = EXCLUDED.current_skills_json;
-                    """, (user_id, email, json.dumps(resp_data)))
+                        SET current_skills_json = EXCLUDED.current_skills_json,
+                            biography_json = EXCLUDED.biography_json;
+                    """, (user_id, email, json.dumps(resp_data), json.dumps(biography_data)))
                     conn.commit()
                     cur.close()
                     conn.close()
-                    logger.info(f"Successfully upserted current_skills_json for user {user_id}")
+                    logger.info(
+                        f"Upserted skills + biography_json for user {user_id}. "
+                        f"Biography keys with content: "
+                        f"{[k for k, v in biography_data.items() if v]}"
+                    )
                 except Exception as e:
                     logger.error(f"ERROR: Failed to save resume data to Supabase: {e}")
                     # Continue anyway to not break the UI
@@ -504,6 +528,52 @@ async def get_user_profile(request: Request, user=Depends(verify_token)):
         logger.error(f"DB error fetching user profile: {str(e)}")
         # If the table doesn't exist yet in a fresh environment, fail gracefully
         return {"user_id": user_id, "current_skills_json": {}}
+
+
+@app.get("/api/user/biography")
+async def get_user_biography(request: Request, user=Depends(verify_token)):
+    """
+    Returns the deterministically chunked biographical data for the authenticated
+    user: { summary, education, experience }.
+
+    This is fetched by ResumeBuilder on mount to pre-populate the
+    Professional Summary and Education fields with data extracted from
+    the user's uploaded CV rather than hardcoded placeholder text.
+    """
+    user_id = user.get("sub", "anonymous")
+    try:
+        conn = _get_pg_conn()
+        cur = conn.cursor()
+
+        # Ensure the column exists (no-op if already present)
+        _ensure_users_biography_column(cur)
+        conn.commit()
+
+        cur.execute("""
+            SELECT biography_json
+            FROM users
+            WHERE firebase_uid = %s;
+        """, (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        biography = row[0] if (row and row[0]) else {}
+        return {
+            "user_id": user_id,
+            "summary": biography.get("summary", ""),
+            "education": biography.get("education", ""),
+            "experience": biography.get("experience", ""),
+        }
+    except Exception as e:
+        logger.error(f"DB error fetching biography for user '{user_id}': {str(e)}")
+        # Fail gracefully — the frontend falls back to placeholder defaults
+        return {
+            "user_id": user_id,
+            "summary": "",
+            "education": "",
+            "experience": "",
+        }
 
 # ─── Dynamic Role Search ─────────────────────────────────────────────────────
 @app.get("/api/search-roles")
