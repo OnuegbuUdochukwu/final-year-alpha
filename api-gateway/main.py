@@ -854,6 +854,14 @@ async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
     )
 
 
+# ── POST /api/resume/pdf  (alias for /api/v1/resume/generate) ─────────────────
+# Provided as a convenience alias so clients calling the shorter path still work.
+@app.post("/api/resume/pdf")
+async def resume_pdf_alias(payload: ResumePayload, user=Depends(verify_token)):
+    """Alias: delegates directly to the full generate_resume pipeline."""
+    return await generate_resume(payload, user)
+
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("--- Active FastAPI Routes ---")

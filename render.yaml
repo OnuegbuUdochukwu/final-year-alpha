@@ -54,6 +54,9 @@ services:
     envVars:
       - key: PORT
         value: 80
+    buildArgs:
+      # VITE_* vars must be build args — Vite bakes them in at build time,
+      # not runtime, so they cannot be passed as container env vars.
       - key: VITE_GATEWAY_URL
         value: https://fyp-gateway.onrender.com
 

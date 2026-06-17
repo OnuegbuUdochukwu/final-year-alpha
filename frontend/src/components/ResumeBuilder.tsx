@@ -17,8 +17,7 @@ import {
   Award,
   Info,
 } from 'lucide-react';
-import { getUserBiography } from '../api/resumeApi';
-import { downloadResume } from '../api/resumeApi';
+import { getUserBiography, downloadResume } from '../api/resumeApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
