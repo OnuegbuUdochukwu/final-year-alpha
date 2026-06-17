@@ -90,6 +90,9 @@ async def parse_resume(file: UploadFile = File(...)):
         "  ],\n"
         '  "skills": ["Skill 1", "Skill 2"]\n'
         "}\n\n"
+        "IMPORTANT RULES:\n"
+        "- If the contact information (email, phone) is mashed together or contains typos, do your best to separate them into the 'email' and 'phone' keys.\n"
+        "- If a 'Summary' section exists, prioritize it over 'Volunteering' for the 'summary' key.\n"
         "Return ONLY the raw JSON object. Do not include markdown formatting like ```json or any explanation.\n\n"
         f"Resume Text:\n{truncated_text}"
     )

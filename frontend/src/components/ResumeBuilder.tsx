@@ -229,6 +229,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
         linkedin: fullResumeData.contact.linkedin || fullResumeData.contact.phone, // mapping phone to linkedin placeholder in backend
         summary: fullResumeData.summary,
         education: fullResumeData.education.map(e => `${e.dates}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
+        experience: fullResumeData.experience.map(e => ({
+          title: e.title,
+          company: e.company,
+          location: e.location,
+          dates: e.dates,
+          duties: e.duties
+        })),
         cv_skills: cvSkills,
         gained_skills: newRoadmapSkills,
         target_role: targetRole,

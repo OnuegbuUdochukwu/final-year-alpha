@@ -672,6 +672,13 @@ async def search_roles(query: str = "", _user=Depends(verify_token)):
 # ─── Resume Feature ──────────────────────────────────────────────────────────
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
+class ExperienceItem(BaseModel):
+    title: str
+    company: str
+    location: str
+    dates: str
+    duties: List[str]
+
 class CourseItem(BaseModel):
     name: str
     provider: Optional[str] = ""
@@ -686,6 +693,7 @@ class ResumePayload(BaseModel):
     # User-edited biography text forwarded from the canvas
     summary:         Optional[str]            = ""
     education:       Optional[str]            = ""
+    experience:      Optional[List[ExperienceItem]] = []
     cv_skills:       Optional[List[str]]      = []
     gained_skills:   Optional[List[str]]      = []
     user_additions:  Optional[List[str]]      = []
@@ -744,6 +752,15 @@ def _build_template_context(user: dict, payload: ResumePayload) -> dict:
         # User-edited canvas text; html.escape is applied to prevent XSS
         "summary":      _sanitise(payload.summary or ""),
         "education":    _sanitise(payload.education or ""),
+        "experience":   [
+            {
+                "title": _sanitise(e.title),
+                "company": _sanitise(e.company),
+                "location": _sanitise(e.location),
+                "dates": _sanitise(e.dates),
+                "duties": [_sanitise(d) for d in e.duties]
+            } for e in (payload.experience or [])
+        ],
         "cv_skills":    merged_cv,
         "gained_skills":merged_gained,
         "target_role":  _sanitise(payload.target_role or ""),

@@ -10,6 +10,14 @@ export interface CourseItem {
   provider?: string;
 }
 
+export interface ExperienceItem {
+  title: string;
+  company: string;
+  location: string;
+  dates: string;
+  duties: string[];
+}
+
 /**
  * The biographical data returned by GET /api/user/biography.
  * These sections are extracted deterministically (no LLM) from the uploaded CV.
@@ -51,6 +59,7 @@ export interface ResumePayload {
   summary?: string;
   /** User-edited education block text (from canvas) */
   education?: string;
+  experience?: ExperienceItem[];
   cv_skills?: string[];
   gained_skills?: string[];
   user_additions?: string[];

@@ -162,6 +162,42 @@
       line-height: 1.65;
     }
 
+    /* ── Experience ───────────────────────────────────────────── */
+    .experience-item {
+      margin-bottom: 12pt;
+    }
+    .experience-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 2pt;
+    }
+    .experience-title {
+      font-weight: 700;
+      color: #1a1a2e;
+      font-size: 10pt;
+    }
+    .experience-company {
+      font-weight: 600;
+      color: #4f46e5;
+      font-size: 9.5pt;
+    }
+    .experience-meta {
+      font-size: 8.5pt;
+      color: #6b7280;
+    }
+    .experience-duties {
+      list-style-type: disc;
+      padding-left: 16pt;
+      margin-top: 4pt;
+    }
+    .experience-duties li {
+      font-size: 9pt;
+      color: #374151;
+      margin-bottom: 2pt;
+      line-height: 1.5;
+    }
+
     .education-entry {
       font-size: 9.5pt;
       color: #1f2937;
@@ -206,6 +242,35 @@
   <div class="section">
     <div class="section-title">Education</div>
     <div class="education-entry">{{ education }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ── Experience ───────────────────────────────────────────── -->
+  {% if experience %}
+  <div class="section">
+    <div class="section-title">Experience</div>
+    {% for job in experience %}
+    <div class="experience-item">
+      <div class="experience-header">
+        <div>
+          <span class="experience-title">{{ job.title }}</span>
+          {% if job.company %}
+          <span class="experience-company"> at {{ job.company }}</span>
+          {% endif %}
+        </div>
+        <div class="experience-meta">
+          {{ job.dates }} {% if job.location %}| {{ job.location }}{% endif %}
+        </div>
+      </div>
+      {% if job.duties %}
+      <ul class="experience-duties">
+        {% for duty in job.duties %}
+        <li>{{ duty }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 
