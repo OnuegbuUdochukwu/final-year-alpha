@@ -7,11 +7,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
 
   server: {
-    // In dev mode, proxy all /api/* requests to the API Gateway running on :8080.
-    // This avoids CORS issues and mirrors the production routing topology.
+    // In dev mode, proxy all /api/* requests to the local API Gateway on :8080.
+    // In production the VITE_GATEWAY_URL build-arg bakes the absolute URL into
+    // the bundle, so this proxy block is only active during `npm run dev`.
     proxy: {
       '/api': {
-        target: process.env.VITE_GATEWAY_URL ?? 'http://localhost:8080',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },
