@@ -47,6 +47,10 @@ export interface ResumePayload {
   email?: string;
   linkedin?: string;
   location?: string;
+  /** User-edited professional summary text (from canvas) */
+  summary?: string;
+  /** User-edited education block text (from canvas) */
+  education?: string;
   cv_skills?: string[];
   gained_skills?: string[];
   user_additions?: string[];

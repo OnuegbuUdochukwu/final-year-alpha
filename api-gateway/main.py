@@ -673,6 +673,9 @@ class ResumePayload(BaseModel):
     email:           Optional[str]            = ""
     linkedin:        Optional[str]            = ""
     location:        Optional[str]            = ""
+    # User-edited biography text forwarded from the canvas
+    summary:         Optional[str]            = ""
+    education:       Optional[str]            = ""
     cv_skills:       Optional[List[str]]      = []
     gained_skills:   Optional[List[str]]      = []
     user_additions:  Optional[List[str]]      = []
@@ -728,6 +731,9 @@ def _build_template_context(user: dict, payload: ResumePayload) -> dict:
         "email":        _sanitise(payload.email or ""),
         "linkedin":     _sanitise(payload.linkedin or ""),
         "location":     _sanitise(payload.location or ""),
+        # User-edited canvas text; html.escape is applied to prevent XSS
+        "summary":      _sanitise(payload.summary or ""),
+        "education":    _sanitise(payload.education or ""),
         "cv_skills":    merged_cv,
         "gained_skills":merged_gained,
         "target_role":  _sanitise(payload.target_role or ""),

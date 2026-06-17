@@ -1,17 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
   X,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Trash2,
   Loader2,
   AlertCircle,
+  Sparkles,
+  User,
+  Briefcase,
+  GraduationCap,
+  Wrench,
+  BookOpen,
+  Award,
+  Info,
 } from 'lucide-react';
 import { getUserBiography } from '../api/resumeApi';
+import { downloadResume } from '../api/resumeApi';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ResumeBuilderProps {
   token: string;
@@ -21,13 +30,105 @@ interface ResumeBuilderProps {
   onClose: () => void;
 }
 
-interface ResumeEntry {
+interface ExperienceEntry {
   id: string;
-  type: 'summary' | 'experience' | 'education' | 'skill' | 'project' | 'certification';
-  content: string;
-  date?: string;
-  subtitle?: string;
+  title: string;
+  company: string;
+  date: string;
+  description: string;
 }
+
+interface ProjectEntry {
+  id: string;
+  name: string;
+  description: string;
+  date: string;
+}
+
+interface CertEntry {
+  id: string;
+  name: string;
+  provider: string;
+  date: string;
+}
+
+interface ResumeHeader {
+  name: string;
+  title: string;
+  email: string;
+  location: string;
+  linkedin: string;
+}
+
+interface ResumeState {
+  header: ResumeHeader;
+  summary: string;
+  education: string;
+  experience: ExperienceEntry[];
+  projects: ProjectEntry[];
+  certifications: CertEntry[];
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function makeId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** A contentEditable <div> that saves on blur and shows placeholder text */
+const EditableBlock = React.memo(function EditableBlock({
+  value,
+  placeholder,
+  onSave,
+  className = '',
+  multiline = false,
+  tag: Tag = 'div',
+}: {
+  value: string;
+  placeholder: string;
+  onSave: (text: string) => void;
+  className?: string;
+  multiline?: boolean;
+  tag?: keyof JSX.IntrinsicElements;
+}) {
+  const ref = useRef<HTMLElement>(null);
+
+  // Sync external value into DOM without triggering re-render loops
+  useEffect(() => {
+    if (ref.current && ref.current.innerText !== value) {
+      ref.current.innerText = value;
+    }
+  }, [value]);
+
+  const handleBlur = useCallback(() => {
+    onSave(ref.current?.innerText ?? '');
+  }, [onSave]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!multiline && e.key === 'Enter') {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).blur();
+      }
+    },
+    [multiline]
+  );
+
+  return (
+    <Tag
+      ref={ref as any}
+      contentEditable
+      suppressContentEditableWarning
+      data-placeholder={placeholder}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className={`editable-block outline-none focus:bg-rust-50/40 rounded transition-colors duration-150 ${className}`}
+      aria-label={placeholder}
+    />
+  );
+});
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   token,
@@ -36,512 +137,547 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   courses,
   onClose,
 }) => {
-  const [entries, setEntries] = useState<ResumeEntry[]>(() => {
-    const initial: ResumeEntry[] = [];
+  // All roadmap course names treated as new skills to highlight
+  const newRoadmapSkills = courses.map(c => c.name).filter(Boolean);
 
-    initial.push({
-      id: 'summary-1',
-      type: 'summary',
-      content: `Results-driven professional seeking a ${targetRole} position, leveraging expertise in ${cvSkills.slice(0, 3).join(', ')} to drive impactful outcomes.`,
-    });
-
-    initial.push({
-      id: 'education-1',
-      type: 'education',
-      content: 'Bachelor of Science in Computer Science',
-      subtitle: 'University of Nigeria, Nsukka',
-      date: '2020 - 2024',
-    });
-
-    cvSkills.slice(0, 8).forEach((skill, idx) => {
-      initial.push({
-        id: `skill-${idx}`,
-        type: 'skill',
-        content: skill,
-      });
-    });
-
-    courses.slice(0, 3).forEach((course, idx) => {
-      initial.push({
-        id: `cert-${idx}`,
-        type: 'certification',
-        content: course.name,
-        subtitle: course.provider || 'Online Learning Platform',
-        date: 'In Progress',
-      });
-    });
-
-    return initial;
-  });
+  const [resumeState, setResumeState] = useState<ResumeState>(() => ({
+    header: {
+      name: 'Your Full Name',
+      title: targetRole || 'Professional',
+      email: 'email@example.com',
+      location: 'City, Country',
+      linkedin: 'linkedin.com/in/yourprofile',
+    },
+    summary: `Results-driven professional seeking a ${targetRole} position, leveraging expertise in ${cvSkills.slice(0, 3).join(', ')} to drive impactful outcomes.`,
+    education: 'Bachelor of Science in Computer Science\nUniversity of Nigeria, Nsukka\n2020 – 2024',
+    experience: [],
+    projects: [],
+    certifications: courses.slice(0, 3).map((c, i) => ({
+      id: `cert-init-${i}`,
+      name: c.name,
+      provider: c.provider || 'Online Learning Platform',
+      date: 'In Progress',
+    })),
+  }));
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSection, setExpandedSection] = useState<string | null>('all');
   const [biographyLoading, setBiographyLoading] = useState(true);
-  const resumeRef = useRef<HTMLDivElement>(null);
+  const [activePanel, setActivePanel] = useState<'canvas' | 'add'>('canvas');
 
-  // On mount: fetch the deterministically extracted biography from the database
-  // and overwrite the placeholder summary / education entries if real data exists.
+  // ── Biography fetch on mount ───────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-
-    async function loadBiography() {
+    async function loadBio() {
       setBiographyLoading(true);
       try {
         const bio = await getUserBiography(token);
-
         if (cancelled) return;
-
-        setEntries(prev => prev.map(entry => {
-          if (entry.id === 'summary-1' && bio.summary) {
-            return { ...entry, content: bio.summary };
-          }
-          if (entry.id === 'education-1' && bio.education) {
-            // Try to split education text into degree / institution / date
-            // by taking the first line as the degree and subsequent lines as institution.
-            const eduLines = bio.education.split('\n').map(l => l.trim()).filter(Boolean);
-            return {
-              ...entry,
-              content: eduLines[0] ?? entry.content,
-              subtitle: eduLines[1] ?? entry.subtitle,
-              date: eduLines[2] ?? entry.date,
-            };
-          }
-          return entry;
+        setResumeState(prev => ({
+          ...prev,
+          summary: bio.summary || prev.summary,
+          education: bio.education || prev.education,
         }));
       } catch {
-        // Graceful fallback — keep the generated placeholder text
+        // Graceful fallback — keep generated placeholder
         console.info('[ResumeBuilder] Biography fetch failed; using placeholder defaults.');
       } finally {
         if (!cancelled) setBiographyLoading(false);
       }
     }
-
-    loadBiography();
+    loadBio();
     return () => { cancelled = true; };
   }, [token]);
 
-  const addEntry = (type: ResumeEntry['type']) => {
-    const newEntry: ResumeEntry = {
-      id: `${type}-${Date.now()}`,
-      type,
-      content: '',
-      subtitle: '',
-      date: '',
-    };
-    setEntries(prev => [...prev, newEntry]);
-  };
+  // ── State updaters ────────────────────────────────────────────────────────
+  const updateHeader = useCallback((field: keyof ResumeHeader, value: string) => {
+    setResumeState(prev => ({ ...prev, header: { ...prev.header, [field]: value } }));
+  }, []);
 
-  const updateEntry = (id: string, field: keyof ResumeEntry, value: string) => {
-    setEntries(prev =>
-      prev.map(entry =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      )
-    );
-  };
+  const updateExperience = useCallback((id: string, field: keyof ExperienceEntry, value: string) => {
+    setResumeState(prev => ({
+      ...prev,
+      experience: prev.experience.map(e => e.id === id ? { ...e, [field]: value } : e),
+    }));
+  }, []);
 
-  const removeEntry = (id: string) => {
-    setEntries(prev => prev.filter(entry => entry.id !== id));
-  };
+  const addExperience = useCallback(() => {
+    setResumeState(prev => ({
+      ...prev,
+      experience: [
+        ...prev.experience,
+        { id: makeId('exp'), title: 'Job Title', company: 'Company Name', date: '2023 – Present', description: 'Describe your responsibilities and achievements...' },
+      ],
+    }));
+  }, []);
 
-  const generateResumeDOCX = async () => {
+  const removeExperience = useCallback((id: string) => {
+    setResumeState(prev => ({ ...prev, experience: prev.experience.filter(e => e.id !== id) }));
+  }, []);
+
+  const updateProject = useCallback((id: string, field: keyof ProjectEntry, value: string) => {
+    setResumeState(prev => ({
+      ...prev,
+      projects: prev.projects.map(p => p.id === id ? { ...p, [field]: value } : p),
+    }));
+  }, []);
+
+  const addProject = useCallback(() => {
+    setResumeState(prev => ({
+      ...prev,
+      projects: [
+        ...prev.projects,
+        { id: makeId('proj'), name: 'Project Name', description: 'Brief project description and impact...', date: '2024' },
+      ],
+    }));
+  }, []);
+
+  const removeProject = useCallback((id: string) => {
+    setResumeState(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== id) }));
+  }, []);
+
+  const updateCert = useCallback((id: string, field: keyof CertEntry, value: string) => {
+    setResumeState(prev => ({
+      ...prev,
+      certifications: prev.certifications.map(c => c.id === id ? { ...c, [field]: value } : c),
+    }));
+  }, []);
+
+  const removeCert = useCallback((id: string) => {
+    setResumeState(prev => ({ ...prev, certifications: prev.certifications.filter(c => c.id !== id) }));
+  }, []);
+
+  // ── Download ──────────────────────────────────────────────────────────────
+  const handleDownload = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
-
     try {
-      const response = await fetch('/api/generate-resume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          target_role: targetRole,
-          skills: cvSkills,
-          courses: courses.map(c => c.name),
-          sections: entries.map(e => ({
-            type: e.type,
-            content: e.content,
-            subtitle: e.subtitle,
-            date: e.date,
-          })),
-        }),
+      await downloadResume(token, {
+        name: resumeState.header.name,
+        title: resumeState.header.title,
+        email: resumeState.header.email,
+        location: resumeState.header.location,
+        linkedin: resumeState.header.linkedin,
+        cv_skills: cvSkills,
+        gained_skills: newRoadmapSkills,
+        target_role: targetRole,
+        courses: courses,
+        summary: resumeState.summary,
+        education: resumeState.education,
       });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => null);
-        throw new Error(errData?.detail || `Server error: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${targetRole.replace(/\s+/g, '_')}_Resume.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      setError(err.message || 'Failed to generate resume.');
+      setError(err.message || 'Failed to generate PDF.');
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [token, resumeState, cvSkills, newRoadmapSkills, targetRole, courses]);
 
-  const moveEntry = (idx: number, direction: 'up' | 'down') => {
-    setEntries(prev => {
-      const items = [...prev];
-      const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-      if (targetIdx < 0 || targetIdx >= items.length) return prev;
-      [items[idx], items[targetIdx]] = [items[targetIdx], items[idx]];
-      return items;
-    });
-  };
-
-  const toggleSection = (sectionId: string) => {
-    setExpandedSection(prev => (prev === sectionId ? null : sectionId));
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Resume Builder"
+      aria-label="Resume Canvas"
     >
-      <div className="fixed inset-0 bg-clay-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 bg-noise pointer-events-none" />
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-clay-900/70 backdrop-blur-sm" onClick={onClose} />
 
+      {/* Modal shell */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 16 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="relative w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+        initial={{ opacity: 0, scale: 0.97, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 12 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-6xl h-[92vh] flex flex-col bg-clay-50 rounded-2xl shadow-2xl shadow-clay-900/30 border border-clay-200 overflow-hidden"
       >
-        <div className="bg-white rounded-2xl shadow-2xl shadow-clay-900/20 border border-clay-200 overflow-hidden flex flex-col max-h-[85vh]">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-clay-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-rust-50">
-                <FileText className="w-5 h-5 text-rust-500" />
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-clay-200 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-rust-50 border border-rust-100">
+              <FileText className="w-4 h-4 text-rust-500" />
+            </div>
+            <div>
+              <h2 className="font-heading text-base font-bold text-ink leading-tight">
+                Resume Canvas
+              </h2>
+              <p className="text-[11px] text-clay-500 font-[450]">
+                Click any field on the canvas to edit · Changes auto-save
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Download button */}
+            <button
+              id="resume-download-btn"
+              onClick={handleDownload}
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm text-white bg-gradient-to-br from-rust-500 to-rust-700 hover:from-rust-600 hover:to-rust-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-rust-500/25 transition-all active:scale-[0.97]"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  Download PDF
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-clay-400 hover:text-clay-700 hover:bg-clay-100 transition-all"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Error banner ── */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden shrink-0"
+            >
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-rust-50 border-b border-rust-200 text-rust-700 text-sm" role="alert">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {error}
+                <button onClick={() => setError(null)} className="ml-auto p-1 rounded hover:bg-rust-100">
+                  <X className="w-3 h-3" />
+                </button>
               </div>
-              <div>
-                <h2 className="font-heading text-lg font-bold text-ink">Resume Builder</h2>
-                <p className="text-xs text-clay-500 font-[450]">
-                  Customize your resume for <span className="font-semibold text-rust-600">{targetRole}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Body: sidebar + canvas ── */}
+        <div className="flex flex-1 min-h-0">
+
+          {/* ── Left sidebar ── */}
+          <aside className="w-52 shrink-0 bg-white border-r border-clay-200 flex flex-col overflow-y-auto py-4 px-3 gap-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-clay-400 px-2 mb-1">
+              Add Section
+            </p>
+
+            <SidebarBtn icon={<Briefcase className="w-3.5 h-3.5" />} label="Experience" onClick={addExperience} />
+            <SidebarBtn icon={<BookOpen className="w-3.5 h-3.5" />} label="Project" onClick={addProject} />
+
+            <div className="h-px bg-clay-100 my-2" />
+
+            {/* Skills legend */}
+            <p className="text-[10px] font-bold uppercase tracking-widest text-clay-400 px-2 mb-2 mt-1">
+              Skills Legend
+            </p>
+            <div className="px-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm bg-clay-200 border border-clay-300 shrink-0" />
+                <span className="text-[11px] text-clay-600">Original CV skills</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm bg-forest-200 border border-forest-300 shrink-0" />
+                <span className="text-[11px] text-clay-600">New from OCPR roadmap</span>
+              </div>
+            </div>
+
+            <div className="h-px bg-clay-100 my-2" />
+
+            {/* Info tip */}
+            <div className="px-2 mt-1">
+              <div className="flex items-start gap-1.5 p-2 rounded-lg bg-clay-50 border border-clay-100">
+                <Info className="w-3 h-3 text-clay-400 mt-0.5 shrink-0" />
+                <p className="text-[10.5px] text-clay-500 leading-snug">
+                  Click any text on the canvas to edit it directly. Press Enter or click away to save.
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg text-clay-400 hover:text-clay-600 hover:bg-clay-50 transition-all"
-              aria-label="Close resume builder"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          </aside>
 
-          <div className="px-6 py-4 border-b border-clay-100 flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => addEntry('experience')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rust-600 bg-rust-50 border border-rust-200 hover:bg-rust-100 transition-all"
+          {/* ── Canvas area ── */}
+          <main className="flex-1 overflow-y-auto bg-clay-100/60 flex justify-center py-8 px-6">
+            <div
+              id="resume-canvas"
+              className="w-full max-w-[720px] bg-white rounded shadow-2xl shadow-clay-900/15 border border-clay-200 px-14 py-12 min-h-[900px]"
+              style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
             >
-              <Plus className="w-3 h-3" />
-              Experience
-            </button>
-            <button
-              onClick={() => addEntry('project')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-forest-600 bg-forest-50 border border-forest-200 hover:bg-forest-100 transition-all"
-            >
-              <Plus className="w-3 h-3" />
-              Project
-            </button>
-          </div>
-
-          <div
-            ref={resumeRef}
-            className="flex-1 overflow-y-auto px-6 py-5 space-y-3 scrollbar-thin"
-          >
-            {entries.map((entry, idx) => (
-              <ResumeEntryEditor
-                key={entry.id}
-                entry={entry}
-                index={idx}
-                total={entries.length}
-                onUpdate={updateEntry}
-                onRemove={removeEntry}
-                onMove={moveEntry}
-                expanded={expandedSection === 'all' || expandedSection === entry.id}
-                onToggleExpand={() => toggleSection(entry.id)}
-                isLoading={biographyLoading && (entry.id === 'summary-1' || entry.id === 'education-1')}
-              />
-            ))}
-
-            {entries.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 text-clay-400">
-                <FileText className="w-10 h-10 mb-3" />
-                <p className="text-sm font-medium">Your resume is empty</p>
-                <p className="text-xs font-[450]">Add sections above to build your resume</p>
+              {/* ── Paper: Header ── */}
+              <div className="border-b-2 border-indigo-600 pb-5 mb-7">
+                <EditableBlock
+                  tag="h1"
+                  value={resumeState.header.name}
+                  placeholder="Your Full Name"
+                  onSave={v => updateHeader('name', v)}
+                  className="text-3xl font-bold text-gray-900 tracking-tight"
+                />
+                <EditableBlock
+                  value={resumeState.header.title}
+                  placeholder="Professional Title"
+                  onSave={v => updateHeader('title', v)}
+                  className="text-base font-semibold text-indigo-600 mt-1"
+                />
+                <div className="flex flex-wrap gap-x-6 mt-2">
+                  <EditableBlock
+                    value={resumeState.header.email}
+                    placeholder="email@example.com"
+                    onSave={v => updateHeader('email', v)}
+                    className="text-xs text-gray-500"
+                  />
+                  <EditableBlock
+                    value={resumeState.header.location}
+                    placeholder="City, Country"
+                    onSave={v => updateHeader('location', v)}
+                    className="text-xs text-gray-500"
+                  />
+                  <EditableBlock
+                    value={resumeState.header.linkedin}
+                    placeholder="linkedin.com/in/..."
+                    onSave={v => updateHeader('linkedin', v)}
+                    className="text-xs text-gray-500"
+                  />
+                </div>
               </div>
-            )}
-          </div>
 
-          {error && (
-            <div className="px-6 py-3 border-t border-clay-100">
-              <div className="flex items-center gap-2 p-3 bg-rust-50 border border-rust-200 rounded-lg text-rust-700 text-sm" role="alert">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between px-6 py-4 border-t border-clay-100 bg-clay-50">
-            <p className="text-xs text-clay-400 font-[450]">
-              {entries.length} section{entries.length !== 1 ? 's' : ''}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={generateResumeDOCX}
-                disabled={isGenerating || entries.length === 0}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm text-white bg-gradient-to-br from-rust-500 to-rust-700 hover:from-rust-600 hover:to-rust-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-rust-500/20 transition-all active:scale-[0.97]"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating&hellip;
-                  </>
+              {/* ── Paper: Summary ── */}
+              <CanvasSection icon={<User className="w-3 h-3" />} title="Professional Summary">
+                {biographyLoading ? (
+                  <div className="space-y-2">
+                    <div className="skeleton h-3 rounded w-full" />
+                    <div className="skeleton h-3 rounded w-5/6" />
+                    <div className="skeleton h-3 rounded w-4/6" />
+                  </div>
                 ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Download .DOCX
-                  </>
+                  <EditableBlock
+                    value={resumeState.summary}
+                    placeholder="Write your professional summary..."
+                    onSave={v => setResumeState(prev => ({ ...prev, summary: v }))}
+                    multiline
+                    className="text-sm text-gray-700 leading-relaxed min-h-[48px]"
+                  />
                 )}
-              </button>
+              </CanvasSection>
+
+              {/* ── Paper: Education ── */}
+              <CanvasSection icon={<GraduationCap className="w-3 h-3" />} title="Education">
+                {biographyLoading ? (
+                  <div className="space-y-2">
+                    <div className="skeleton h-3 rounded w-3/4" />
+                    <div className="skeleton h-3 rounded w-1/2" />
+                  </div>
+                ) : (
+                  <EditableBlock
+                    value={resumeState.education}
+                    placeholder="Degree · Institution · Year"
+                    onSave={v => setResumeState(prev => ({ ...prev, education: v }))}
+                    multiline
+                    className="text-sm text-gray-700 leading-relaxed min-h-[36px] whitespace-pre-wrap"
+                  />
+                )}
+              </CanvasSection>
+
+              {/* ── Paper: Experience ── */}
+              {resumeState.experience.length > 0 && (
+                <CanvasSection icon={<Briefcase className="w-3 h-3" />} title="Experience">
+                  <div className="space-y-5">
+                    {resumeState.experience.map(exp => (
+                      <div key={exp.id} className="relative group">
+                        <button
+                          onClick={() => removeExperience(exp.id)}
+                          className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 p-1 rounded text-clay-400 hover:text-rust-500 transition-all"
+                          aria-label="Remove experience"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex justify-between items-start gap-4">
+                          <EditableBlock
+                            value={exp.title}
+                            placeholder="Job Title"
+                            onSave={v => updateExperience(exp.id, 'title', v)}
+                            className="text-sm font-bold text-gray-900 flex-1"
+                          />
+                          <EditableBlock
+                            value={exp.date}
+                            placeholder="2023 – Present"
+                            onSave={v => updateExperience(exp.id, 'date', v)}
+                            className="text-xs text-gray-500 text-right shrink-0"
+                          />
+                        </div>
+                        <EditableBlock
+                          value={exp.company}
+                          placeholder="Company Name"
+                          onSave={v => updateExperience(exp.id, 'company', v)}
+                          className="text-xs font-semibold text-indigo-600 mt-0.5"
+                        />
+                        <EditableBlock
+                          value={exp.description}
+                          placeholder="Describe your responsibilities and achievements..."
+                          onSave={v => updateExperience(exp.id, 'description', v)}
+                          multiline
+                          className="text-xs text-gray-600 leading-relaxed mt-1.5 min-h-[36px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CanvasSection>
+              )}
+
+              {/* ── Paper: Projects ── */}
+              {resumeState.projects.length > 0 && (
+                <CanvasSection icon={<BookOpen className="w-3 h-3" />} title="Projects">
+                  <div className="space-y-4">
+                    {resumeState.projects.map(proj => (
+                      <div key={proj.id} className="relative group">
+                        <button
+                          onClick={() => removeProject(proj.id)}
+                          className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 p-1 rounded text-clay-400 hover:text-rust-500 transition-all"
+                          aria-label="Remove project"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex justify-between items-start gap-4">
+                          <EditableBlock
+                            value={proj.name}
+                            placeholder="Project Name"
+                            onSave={v => updateProject(proj.id, 'name', v)}
+                            className="text-sm font-bold text-gray-900 flex-1"
+                          />
+                          <EditableBlock
+                            value={proj.date}
+                            placeholder="2024"
+                            onSave={v => updateProject(proj.id, 'date', v)}
+                            className="text-xs text-gray-500 text-right shrink-0"
+                          />
+                        </div>
+                        <EditableBlock
+                          value={proj.description}
+                          placeholder="Brief project description and impact..."
+                          onSave={v => updateProject(proj.id, 'description', v)}
+                          multiline
+                          className="text-xs text-gray-600 leading-relaxed mt-1 min-h-[28px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CanvasSection>
+              )}
+
+              {/* ── Paper: Skills ── */}
+              <CanvasSection icon={<Wrench className="w-3 h-3" />} title="Skills">
+                <div className="flex flex-wrap gap-1.5">
+                  {cvSkills.map(skill => (
+                    <span
+                      key={`cv-${skill}`}
+                      className="inline-block px-2.5 py-0.5 text-xs font-medium rounded bg-clay-100 text-clay-700 border border-clay-200"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {newRoadmapSkills.map(skill => (
+                    <span
+                      key={`new-${skill}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded bg-forest-100 text-forest-800 border border-forest-300"
+                    >
+                      <Sparkles className="w-2.5 h-2.5" />
+                      {skill}
+                    </span>
+                  ))}
+                  {cvSkills.length === 0 && newRoadmapSkills.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">No skills added yet</p>
+                  )}
+                </div>
+              </CanvasSection>
+
+              {/* ── Paper: Certifications ── */}
+              {resumeState.certifications.length > 0 && (
+                <CanvasSection icon={<Award className="w-3 h-3" />} title="Certifications & Training">
+                  <div className="space-y-3">
+                    {resumeState.certifications.map(cert => (
+                      <div key={cert.id} className="relative group flex justify-between items-start gap-4">
+                        <button
+                          onClick={() => removeCert(cert.id)}
+                          className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 p-1 rounded text-clay-400 hover:text-rust-500 transition-all"
+                          aria-label="Remove certification"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex-1">
+                          <EditableBlock
+                            value={cert.name}
+                            placeholder="Certification Name"
+                            onSave={v => updateCert(cert.id, 'name', v)}
+                            className="text-sm font-semibold text-gray-800"
+                          />
+                          <EditableBlock
+                            value={cert.provider}
+                            placeholder="Issuing Organization"
+                            onSave={v => updateCert(cert.id, 'provider', v)}
+                            className="text-xs text-indigo-500 mt-0.5"
+                          />
+                        </div>
+                        <EditableBlock
+                          value={cert.date}
+                          placeholder="Year"
+                          onSave={v => updateCert(cert.id, 'date', v)}
+                          className="text-xs text-gray-400 shrink-0 text-right"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CanvasSection>
+              )}
+
+              {/* Footer */}
+              <div className="mt-10 pt-4 border-t border-gray-100 text-center">
+                <p className="text-[9px] text-gray-300 tracking-wide">
+                  Generated by AI Career Pathfinder
+                </p>
+              </div>
             </div>
-          </div>
+          </main>
         </div>
       </motion.div>
     </div>
   );
 };
 
-interface ResumeEntryEditorProps {
-  entry: ResumeEntry;
-  index: number;
-  total: number;
-  onUpdate: (id: string, field: keyof ResumeEntry, value: string) => void;
-  onRemove: (id: string) => void;
-  onMove: (index: number, direction: 'up' | 'down') => void;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  /** True while the biography API call is in-flight — shows a loading shimmer */
-  isLoading?: boolean;
-}
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-const typeLabels: Record<string, string> = {
-  summary: 'Professional Summary',
-  experience: 'Experience',
-  education: 'Education',
-  skill: 'Skill',
-  project: 'Project',
-  certification: 'Certification',
-};
-
-const ResumeEntryEditor: React.FC<ResumeEntryEditorProps> = ({
-  entry,
-  index,
-  total,
-  onUpdate,
-  onRemove,
-  onMove,
-  expanded,
-  onToggleExpand,
-  isLoading = false,
-}) => {
-  const inputClass = "w-full px-3 py-2 rounded-lg border border-clay-300 bg-white text-ink text-sm placeholder-clay-400 focus:outline-none focus:ring-2 focus:ring-rust-500 focus:border-rust-500 transition-all";
-
-  return (
-    <div className="border border-clay-200 rounded-xl overflow-hidden bg-white relative">
-      {/* Loading shimmer overlay for biography sections */}
-      {isLoading && (
-        <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
-          <div className="flex items-center gap-2 text-clay-400 text-xs font-medium">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-rust-400" />
-            Loading from your CV…
-          </div>
-        </div>
-      )}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-clay-50 border-b border-clay-100">
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => onMove(index, 'up')}
-            disabled={index === 0}
-            className="p-1 rounded text-clay-400 hover:text-clay-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            aria-label="Move up"
-          >
-            <ChevronUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onMove(index, 'down')}
-            disabled={index === total - 1}
-            className="p-1 rounded text-clay-400 hover:text-clay-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            aria-label="Move down"
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <span className="text-xs font-semibold text-clay-500 uppercase tracking-[0.1em] min-w-[120px]">
-          {typeLabels[entry.type] || entry.type}
-        </span>
-
-        <button
-          onClick={onToggleExpand}
-          className="ml-auto p-1 rounded text-clay-400 hover:text-clay-600 transition-colors"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
-        >
-          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
-
-        <button
-          onClick={() => onRemove(entry.id)}
-          className="p-1 rounded text-clay-400 hover:text-rust-500 transition-colors"
-          aria-label="Remove entry"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="p-4 space-y-3">
-          {entry.type === 'summary' && (
-            <textarea
-              value={entry.content}
-              onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-              rows={4}
-              className={`${inputClass} resize-none`}
-              placeholder="Write your professional summary..."
-            />
-          )}
-
-          {entry.type === 'experience' && (
-            <>
-              <input
-                type="text"
-                value={entry.content}
-                onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-                className={inputClass}
-                placeholder="Job Title"
-              />
-              <input
-                type="text"
-                value={entry.subtitle || ''}
-                onChange={(e) => onUpdate(entry.id, 'subtitle', e.target.value)}
-                className={inputClass}
-                placeholder="Company Name"
-              />
-              <input
-                type="text"
-                value={entry.date || ''}
-                onChange={(e) => onUpdate(entry.id, 'date', e.target.value)}
-                className={inputClass}
-                placeholder="e.g., Jan 2022 - Present"
-              />
-            </>
-          )}
-
-          {entry.type === 'education' && (
-            <>
-              <input
-                type="text"
-                value={entry.content}
-                onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-                className={inputClass}
-                placeholder="Degree"
-              />
-              <input
-                type="text"
-                value={entry.subtitle || ''}
-                onChange={(e) => onUpdate(entry.id, 'subtitle', e.target.value)}
-                className={inputClass}
-                placeholder="School"
-              />
-              <input
-                type="text"
-                value={entry.date || ''}
-                onChange={(e) => onUpdate(entry.id, 'date', e.target.value)}
-                className={inputClass}
-                placeholder="e.g., 2020 - 2024"
-              />
-            </>
-          )}
-
-          {entry.type === 'skill' && (
-            <input
-              type="text"
-              value={entry.content}
-              onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-              className={inputClass}
-              placeholder="Skill name"
-            />
-          )}
-
-          {entry.type === 'project' && (
-            <>
-              <input
-                type="text"
-                value={entry.content}
-                onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-                className={inputClass}
-                placeholder="Project Name"
-              />
-              <textarea
-                value={entry.subtitle || ''}
-                onChange={(e) => onUpdate(entry.id, 'subtitle', e.target.value)}
-                rows={3}
-                className={`${inputClass} resize-none`}
-                placeholder="Project description..."
-              />
-              <input
-                type="text"
-                value={entry.date || ''}
-                onChange={(e) => onUpdate(entry.id, 'date', e.target.value)}
-                className={inputClass}
-                placeholder="e.g., 2023"
-              />
-            </>
-          )}
-
-          {entry.type === 'certification' && (
-            <>
-              <input
-                type="text"
-                value={entry.content}
-                onChange={(e) => onUpdate(entry.id, 'content', e.target.value)}
-                className={inputClass}
-                placeholder="Certification Name"
-              />
-              <input
-                type="text"
-                value={entry.subtitle || ''}
-                onChange={(e) => onUpdate(entry.id, 'subtitle', e.target.value)}
-                className={inputClass}
-                placeholder="Issuing Organization"
-              />
-              <input
-                type="text"
-                value={entry.date || ''}
-                onChange={(e) => onUpdate(entry.id, 'date', e.target.value)}
-                className={inputClass}
-                placeholder="e.g., 2024"
-              />
-            </>
-          )}
-        </div>
-      )}
+const CanvasSection: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}> = ({ icon, title, children }) => (
+  <div className="mb-7">
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-indigo-500">{icon}</span>
+      <h3 className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-indigo-600">
+        {title}
+      </h3>
+      <div className="flex-1 h-px bg-indigo-100" />
     </div>
-  );
-};
+    {children}
+  </div>
+);
+
+const SidebarBtn: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}> = ({ icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-clay-600 hover:bg-clay-50 hover:text-ink transition-all text-left group"
+  >
+    <span className="text-clay-400 group-hover:text-rust-500 transition-colors">{icon}</span>
+    <Plus className="w-2.5 h-2.5 text-clay-300 group-hover:text-rust-400 transition-colors" />
+    {label}
+  </button>
+);
 
 export default ResumeBuilder;

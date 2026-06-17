@@ -155,6 +155,20 @@
       margin-top: 2pt;
     }
 
+    /* ── Summary & Education ──────────────────────────────────── */
+    .summary-text {
+      font-size: 9.5pt;
+      color: #374151;
+      line-height: 1.65;
+    }
+
+    .education-entry {
+      font-size: 9.5pt;
+      color: #1f2937;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
     /* ── Footer ───────────────────────────────────────────────── */
     .footer {
       margin-top: 28pt;
@@ -178,6 +192,22 @@
       {% if location %}<span>{{ location }}</span>{% endif %}
     </div>
   </div>
+
+  <!-- ── Professional Summary ────────────────────────────────── -->
+  {% if summary %}
+  <div class="section">
+    <div class="section-title">Professional Summary</div>
+    <p class="summary-text">{{ summary }}</p>
+  </div>
+  {% endif %}
+
+  <!-- ── Education ────────────────────────────────────────────── -->
+  {% if education %}
+  <div class="section">
+    <div class="section-title">Education</div>
+    <div class="education-entry">{{ education }}</div>
+  </div>
+  {% endif %}
 
   <!-- ── Target Role ────────────────────────────────────────── -->
   {% if target_role %}
