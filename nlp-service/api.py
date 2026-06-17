@@ -31,14 +31,101 @@ _SECTION_PATTERNS = [
 ]
 
 
+def _parse_experience(text: str) -> list:
+    """Heuristically parses an experience text block into an array of jobs."""
+    jobs = []
+    lines = text.split('\n')
+    current_job = None
+    
+    # Common date regex (e.g. Jan 2020 - Present, 05/2018 - 09/2021, 2015-2018)
+    date_regex = re.compile(r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*\d{2,4}|\d{1,2}/\d{2,4}|\d{4})\s*(?:-|to|–)\s*([a-z]+\.?\s*\d{2,4}|\d{1,2}/\d{2,4}|\d{4}|present|current)', re.IGNORECASE)
+    
+    for line in lines:
+        line_clean = line.strip()
+        if not line_clean:
+            continue
+            
+        date_match = date_regex.search(line_clean)
+        # Check if line looks like a job header (contains a date or strong indicators)
+        if date_match or (len(line_clean) < 80 and '|' in line_clean):
+            if current_job:
+                jobs.append(current_job)
+            
+            date_str = date_match.group(0) if date_match else ""
+            header_text = line_clean.replace(date_str, "").strip(' -|,')
+            
+            parts = [p.strip() for p in re.split(r'\|| - |,', header_text) if p.strip()]
+            title = parts[0] if parts else "Unknown Title"
+            company = parts[1] if len(parts) > 1 else ""
+            location = parts[2] if len(parts) > 2 else ""
+            
+            current_job = {
+                "title": title,
+                "company": company,
+                "date": date_str,
+                "location": location,
+                "duties": []
+            }
+        else:
+            if current_job:
+                duty = re.sub(r'^[\u2022\u25E6\u25CB\u25A0\u25CF-]\s*', '', line_clean)
+                current_job["duties"].append(duty)
+            
+    if current_job:
+        jobs.append(current_job)
+        
+    if not jobs and lines:
+        jobs = [{"title": "Professional Experience", "company": "", "date": "", "location": "", "duties": [l.strip() for l in lines if l.strip()]}]
+    return jobs
+
+def _parse_education(text: str) -> list:
+    """Heuristically parses an education text block."""
+    edus = []
+    lines = text.split('\n')
+    current_edu = None
+    date_regex = re.compile(r'(\d{4})')
+    
+    for line in lines:
+        line_clean = line.strip()
+        if not line_clean:
+            continue
+            
+        if len(line_clean) < 100:
+            date_match = date_regex.search(line_clean)
+            if date_match or "university" in line_clean.lower() or "college" in line_clean.lower() or "bachelor" in line_clean.lower() or "degree" in line_clean.lower():
+                if current_edu and current_edu["degree"] != "Degree":
+                    edus.append(current_edu)
+                
+                date_str = date_match.group(0) if date_match else ""
+                header_text = line_clean.replace(date_str, "").strip(' -|,')
+                parts = [p.strip() for p in re.split(r'\|| - |,', header_text) if p.strip()]
+                degree = parts[0] if parts else "Degree"
+                school = parts[1] if len(parts) > 1 else ""
+                
+                current_edu = {
+                    "degree": degree,
+                    "school": school,
+                    "date": date_str,
+                    "location": ""
+                }
+                continue
+                
+        if current_edu:
+            if not current_edu["school"] and len(line_clean) < 60:
+                current_edu["school"] = line_clean
+            
+    if current_edu:
+        edus.append(current_edu)
+        
+    if not edus and lines:
+        edus = [{"degree": "Education", "school": text[:100], "date": "", "location": ""}]
+    return edus
+
 def chunk_resume_text(raw_text: str) -> dict:
     """
     Deterministically splits raw resume text into logical sections using
     common resume header patterns (all-caps or title-case headings).
-
-    Returns a dict with keys: summary, education, experience.
-    Any unrecognised text before the first header is treated as the summary
-    (common for resumes that open with a name/contact block followed by text).
+    Then runs deep parsing on the blocks to build a comprehensive JSON object.
     """
     lines = raw_text.splitlines()
     sections: dict[str, list[str]] = {
@@ -46,15 +133,17 @@ def chunk_resume_text(raw_text: str) -> dict:
         'education': [],
         'experience': [],
     }
-    current_section: str | None = 'summary'  # Text before the first header → summary
+    current_section: str | None = 'summary'
 
-    for line in lines:
+    name = lines[0].strip() if lines else "Applicant Name"
+    email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b', raw_text)
+    email = email_match.group(0) if email_match else ""
+    phone_match = re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', raw_text)
+    phone = phone_match.group(0) if phone_match else ""
+
+    for line in lines[1:]:
         stripped = line.strip()
         if not stripped:
-            # Preserve blank lines within the current section for readability
-            if current_section and sections[current_section] or current_section == 'summary':
-                if current_section in sections:
-                    sections[current_section].append('')
             continue
 
         matched_section = None
@@ -64,20 +153,29 @@ def chunk_resume_text(raw_text: str) -> dict:
                 break
 
         if matched_section is not None:
-            # Only track sections we actually store in biography
             if matched_section in sections:
                 current_section = matched_section
             else:
-                # Section like skills_section / projects — stop appending to biography sections
                 current_section = None
         else:
             if current_section and current_section in sections:
                 sections[current_section].append(stripped)
 
-    # Join and clean up each section
+    summary_text = '\n'.join(sections['summary']).strip()
+    if email in summary_text:
+        summary_text = summary_text.replace(email, "").strip()
+    if phone in summary_text:
+        summary_text = summary_text.replace(phone, "").strip()
+
     return {
-        key: '\n'.join(lines).strip()
-        for key, lines in sections.items()
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "location": "",
+        "title": "Professional",
+        "summary": summary_text,
+        "education": _parse_education('\n'.join(sections['education'])),
+        "experience": _parse_experience('\n'.join(sections['experience'])),
     }
 
 @asynccontextmanager
