@@ -1,7 +1,7 @@
 import io
 import logging
 from typing import Optional
-from pdfminer.high_level import extract_text as extract_pdf_text
+import fitz  # PyMuPDF
 import docx
 
 # Configure logging
@@ -13,11 +13,22 @@ class DocumentExtractor:
 
     @staticmethod
     def extract_from_pdf(file_bytes: bytes) -> Optional[str]:
-        """Extracts text from a PDF file using pdfminer."""
+        """Extracts text from a PDF file using PyMuPDF (fitz) with block sorting for layout."""
         try:
-            # Using io.BytesIO to simulate a file object for pdfminer
-            pdf_file = io.BytesIO(file_bytes)
-            text = extract_pdf_text(pdf_file)
+            doc = fitz.open("pdf", file_bytes)
+            text_blocks = []
+            
+            for page in doc:
+                blocks = page.get_text("blocks")
+                # blocks: (x0, y0, x1, y1, "text", block_no, block_type)
+                text_only = [b for b in blocks if b[6] == 0]
+                # Sort blocks by vertical position (rounded to group rows), then horizontal
+                text_only.sort(key=lambda b: (round(b[1] / 10), b[0]))
+                
+                for b in text_only:
+                    text_blocks.append(b[4].strip())
+                    
+            text = "\n".join(text_blocks)
             return DocumentExtractor._clean_text(text)
         except Exception as e:
             logger.error(f"Failed to extract text from PDF: {e}")
