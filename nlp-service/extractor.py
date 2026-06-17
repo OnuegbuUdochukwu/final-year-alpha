@@ -1,9 +1,7 @@
 import io
-import os
-import tempfile
 import logging
 from typing import Optional
-from pdf2docx import Converter
+import fitz  # PyMuPDF
 import docx
 
 # Configure logging
@@ -15,45 +13,27 @@ class DocumentExtractor:
 
     @staticmethod
     def extract_from_pdf(file_bytes: bytes) -> Optional[str]:
-        """Extracts text from a PDF file by normalizing its layout via a temporary DOCX conversion."""
-        pdf_path = None
-        docx_path = None
+        """Extracts text from a PDF file using PyMuPDF layout-aware blocks."""
         try:
-            # 1. Write the raw PDF bytes to a temporary file
-            fd_pdf, pdf_path = tempfile.mkstemp(suffix=".pdf")
-            with os.fdopen(fd_pdf, 'wb') as f:
-                f.write(file_bytes)
+            doc = fitz.open("pdf", file_bytes)
+            text_blocks = []
             
-            # 2. Create a path for the temporary DOCX file
-            fd_docx, docx_path = tempfile.mkstemp(suffix=".docx")
-            os.close(fd_docx) # Close immediately, pdf2docx will write to it
-            
-            # 3. Convert PDF to DOCX
-            cv = Converter(pdf_path)
-            cv.convert(docx_path, start=0, end=None)
-            cv.close()
-            
-            # 4. Read the DOCX file back into bytes to reuse our extract_from_docx logic
-            with open(docx_path, 'rb') as f:
-                docx_bytes = f.read()
+            for page in doc:
+                blocks = page.get_text("blocks")
+                # blocks is a list of tuples: (x0, y0, x1, y1, "text", block_no, block_type)
+                # block_type 0 is text.
+                text_only = [b for b in blocks if b[6] == 0]
+                # Sort blocks by horizontal position first (to group columns), then vertical position
+                text_only.sort(key=lambda b: (b[0], b[1]))
                 
-            return DocumentExtractor.extract_from_docx(docx_bytes)
-        except Exception as e:
-            logger.error(f"Failed to extract text from PDF via docx normalization: {e}")
-            return None
-        finally:
-            # 5. Clean up temporary files
-            if pdf_path and os.path.exists(pdf_path):
-                try:
-                    os.unlink(pdf_path)
-                except Exception as cleanup_err:
-                    logger.warning(f"Failed to clean up temp PDF {pdf_path}: {cleanup_err}")
+                for b in text_only:
+                    text_blocks.append(b[4].strip())
                     
-            if docx_path and os.path.exists(docx_path):
-                try:
-                    os.unlink(docx_path)
-                except Exception as cleanup_err:
-                    logger.warning(f"Failed to clean up temp DOCX {docx_path}: {cleanup_err}")
+            text = "\n".join(text_blocks)
+            return DocumentExtractor._clean_text(text)
+        except Exception as e:
+            logger.error(f"Failed to extract text from PDF: {e}")
+            return None
 
     @staticmethod
     def extract_from_docx(file_bytes: bytes) -> Optional[str]:
