@@ -191,9 +191,6 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     setFullResumeData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const setContact = useCallback((field: keyof ContactState, value: string) => {
-    setFullResumeData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
-  }, []);
 
   const updateExp = useCallback((id: string, field: keyof ExperienceEntry, value: string) => {
     setFullResumeData(prev => ({
@@ -253,6 +250,8 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     }
   }, [token, fullResumeData, cvSkills, newRoadmapSkills, targetRole, courses]);
 
+  console.log("Canvas Received Data:", fullResumeData);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-gray-100 overflow-y-auto" role="dialog" aria-modal="true">
@@ -302,13 +301,11 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               <Editable as="h2" value={fullResumeData.title} placeholder="Title" onSave={v => set('title', v)} className="text-xl text-center mt-1" />
               
               {/* Contact Line */}
-              <div className="text-sm text-center mt-1 flex justify-center gap-1">
-                <Editable as="span" value={fullResumeData.contact.email || ""} placeholder="" onSave={v => setContact('email', v)} />
-                {fullResumeData.contact.email && <span>|</span>}
-                <Editable as="span" value={fullResumeData.contact.phone || ""} placeholder="" onSave={v => setContact('phone', v)} />
-                {fullResumeData.contact.phone && <span>|</span>}
-                <Editable as="span" value={fullResumeData.contact.location || ""} placeholder="" onSave={v => setContact('location', v)} />
-              </div>
+              <p className="text-sm text-center mt-1" contentEditable={true} suppressContentEditableWarning={true}>
+                {fullResumeData?.contact?.email || "Email"} | 
+                {fullResumeData?.contact?.phone || "Phone"} | 
+                {fullResumeData?.contact?.location || "Location"}
+              </p>
             </div>
 
             {/* Profile */}
