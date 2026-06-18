@@ -68,9 +68,7 @@ async def parse_resume(file: UploadFile = File(...)):
         "You are receiving the candidate's resume formatted in Markdown. Pay close attention to structural markers like `#`, `##`, `**bold text**`, and list items (`-` or `*`).\n\n"
         "CRITICAL PARSING DIRECTIVES:\n\n"
         "1. CONTACT INFORMATION EXTRACTION (HIGH PRIORITY):\n"
-        "   - The candidate's contact information (name, email, phone, location, LinkedIn/portfolio) resides at the very beginning of the Markdown text.\n"
-        "   - This information may completely lack Markdown syntax (it might just be a flat string of words). You MUST explicitly scan the first 10-15 lines of the document to locate and isolate these elements.\n"
-        "   - If the contact info is mashed together or contains messy formatting/typos (e.g., '+1-(234)-555-1234@Ernail' or combined lines), use your semantic understanding to clean, separate, and format them into the distinct JSON keys: `email`, `phone`, `location`, and `linkedin`. Do not return null if the info is present but messy.\n\n"
+        "   - Scan the first 10 lines of the Markdown for contact information. Clean up any garbled text and combine the name, email, phone, location, and links into a single, clean, pipe-separated string (e.g., 'email@example.com | (234)-555-1234 | Columbus, Ohio').\n\n"
         "2. WORK EXPERIENCE & BOUNDARY ENFORCEMENT:\n"
         "   - Use Markdown headers and bolded labels to identify Job Titles and Company Names.\n"
         "   - When you see a Markdown list item (`-` or `*`), it represents a specific duty. You MUST assign these list items ONLY to the `duties` array of the bolded Job Title immediately preceding them.\n"
@@ -84,8 +82,8 @@ async def parse_resume(file: UploadFile = File(...)):
         "{\n"
         '  "name": "Full Name",\n'
         '  "title": "Professional Title",\n'
-        '  "contact": {"email": "...", "phone": "...", "location": "...", "linkedin": "..."},\n'
-        '  "summary": "Full professional summary...",\n'
+        '  "contact_string": "email@example.com | (234)-555-1234 | Columbus, Ohio",\n'
+        '  "summary": "...",\n'
         '  "experience": [\n'
         "    {\n"
         '      "title": "Job Title",\n'

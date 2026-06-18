@@ -224,9 +224,7 @@
     <div class="title">{{ title }}</div>
     <div class="contact">
       <p>
-        {% if email %}{{ email }} | {% endif %}
-        {% if linkedin %}{{ linkedin }} | {% endif %}
-        {% if location %}{{ location }}{% endif %}
+        {% if email %}{{ email }}{% endif %}{% if linkedin %} | {{ linkedin }}{% endif %}{% if location %} | {{ location }}{% endif %}
       </p>
     </div>
   </div>
