@@ -196,19 +196,6 @@
       color: #9ca3af;
       text-align: center;
     }
-
-    /* ── Additional Sections (Projects, Certs, etc.) ──────────── */
-    .additional-items {
-      list-style-type: disc;
-      padding-left: 16pt;
-      margin-top: 4pt;
-    }
-    .additional-items li {
-      font-size: 9pt;
-      color: #374151;
-      margin-bottom: 2pt;
-      line-height: 1.5;
-    }
   </style>
 </head>
 <body>
@@ -314,22 +301,6 @@
       {% endfor %}
     </ul>
   </div>
-  {% endif %}
-
-  <!-- ── Additional Orphaned Sections (Projects, Certifications, etc.) ── -->
-  {% if additional_sections %}
-  {% for section in additional_sections %}
-  {% if section.items %}
-  <div class="section">
-    <div class="section-title">{{ section.title }}</div>
-    <ul class="additional-items">
-      {% for item in section.items %}
-      <li>{{ item }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-  {% endfor %}
   {% endif %}
 
   <!-- ── Footer ─────────────────────────────────────────────── -->

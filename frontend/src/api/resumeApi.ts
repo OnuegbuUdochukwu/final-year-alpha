@@ -18,11 +18,6 @@ export interface ExperienceItem {
   duties: string[];
 }
 
-export interface AdditionalSection {
-  title: string;
-  items: string[];
-}
-
 /**
  * The biographical data returned by GET /api/user/biography.
  * These sections are extracted deterministically (no LLM) from the uploaded CV.
@@ -73,7 +68,6 @@ export interface ResumePayload {
   order?: string[];
   target_role?: string;
   courses?: CourseItem[];
-  additional_sections?: AdditionalSection[];
   format?: 'pdf' | 'docx';
 }
 
