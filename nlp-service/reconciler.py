@@ -126,3 +126,29 @@ def reconcile_resume_data(md_text: str, llm_data: dict) -> dict:
         llm_data["skills"] = list(dict.fromkeys(skills))
 
     return llm_data
+
+def normalize_resume(llm: dict, parsed: dict) -> dict:
+    """
+    Enforces a strict, flat schema for the frontend.
+    """
+    if not isinstance(llm, dict):
+        llm = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+
+    parsed_contact = parsed.get("biography", {}).get("contact", {})
+    
+    return {
+        "name": llm.get("name") or parsed.get("biography", {}).get("name", ""),
+        "title": llm.get("title") or "",
+        "summary": llm.get("summary") or "",
+        "contact": {
+            "email": llm.get("contact", {}).get("email") or parsed_contact.get("email", ""),
+            "phone": llm.get("contact", {}).get("phone") or parsed_contact.get("phone", ""),
+            "location": llm.get("contact", {}).get("location") or parsed_contact.get("location", ""),
+            "linkedin": llm.get("contact", {}).get("linkedin") or parsed_contact.get("linkedin", "")
+        },
+        "experience": llm.get("experience", []),
+        "education": llm.get("education", []),
+        "skills": llm.get("skills", [])
+    }

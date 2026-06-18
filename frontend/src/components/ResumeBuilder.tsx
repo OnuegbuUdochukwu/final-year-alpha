@@ -302,9 +302,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               
               {/* Contact Line */}
               <p className="text-sm text-center mt-1" contentEditable={true} suppressContentEditableWarning={true}>
-                {fullResumeData?.contact?.email || "Email"} | 
-                {fullResumeData?.contact?.phone || "Phone"} | 
-                {fullResumeData?.contact?.location || "Location"}
+                {fullResumeData?.contact?.email || ""} | 
+                {fullResumeData?.contact?.phone || ""} | 
+                {fullResumeData?.contact?.location || ""}
               </p>
             </div>
 

@@ -126,11 +126,11 @@ async def parse_resume(file: UploadFile = File(...)):
         raise HTTPException(status_code=502, detail=f"Bad Gateway to Hugging Face Inference API: {str(e)}")
 
     try:
-        biography = parse_json_from_llm(content)
+        llm_data = parse_json_from_llm(content)
         
         # Merge statically extracted metadata with the LLM data
-        from reconciler import reconcile_resume_data
-        biography = reconcile_resume_data(raw_text, biography)
+        from reconciler import reconcile_resume_data, normalize_resume
+        biography = reconcile_resume_data(raw_text, llm_data)
         
         # Ensure 'skills' exists as a list for normalization
         raw_skills_list = biography.get("skills", [])
@@ -149,6 +149,12 @@ async def parse_resume(file: UploadFile = File(...)):
             "filename": file.filename,
             "biography": biography,
         }
+
+        # Enforce strict flat schema as requested by frontend
+        normalized_data = normalize_resume(llm_data, parsed_data)
+        normalized_data["filename"] = file.filename
+        # We override the raw skills string array with our formatting
+        normalized_data["skills"] = formatted_skills
 
         # 3. Skill Normalization via HF Standard Inference API
         logger.info("Normalizing extracted skills against canonical Graph vocabulary...")
@@ -176,17 +182,17 @@ async def parse_resume(file: UploadFile = File(...)):
 
                 try:
                     normalized_names = parse_json_from_llm(normalized_text, expect_array=True)
-                    parsed_data["normalized_skills"] = normalized_names
+                    normalized_data["normalized_skills"] = normalized_names
                     logger.info(f"Normalized {len(raw_skill_names)} raw skills to {len(normalized_names)} canonical skills.")
                 except ValueError as parse_err:
                     logger.warning(f"Could not parse normalization JSON: {parse_err}")
-                    parsed_data["normalized_skills"] = []
+                    normalized_data["normalized_skills"] = []
             else:
                 logger.warning(f"Failed to fetch canonical skills from Graph Service: HTTP {resp.status_code}")
-                parsed_data["normalized_skills"] = []
+                normalized_data["normalized_skills"] = []
         except Exception as norm_err:
             logger.error(f"Error during skill normalization: {norm_err}")
-            parsed_data["normalized_skills"] = []
+            normalized_data["normalized_skills"] = []
 
     except Exception as e:
         logger.error(f"Failed to parse LLM response JSON: {e}. Raw content: {content}")
@@ -205,13 +211,22 @@ async def parse_resume(file: UploadFile = File(...)):
             except OSError as e:
                 logger.warning(f"Failed to delete raw_resume.md: {e}")
 
+    # We must wrap normalized_data inside the 'biography' key because api-gateway 
+    # explicitly expects resp_data.get("biography", {}) to contain the resume structure.
+    final_response = {
+        "filename": file.filename,
+        "skills": formatted_skills,
+        "normalized_skills": normalized_data.get("normalized_skills", []),
+        "biography": normalized_data
+    }
+
     logger.info(
         f"Successfully parsed resume. "
         f"Extracted {len(formatted_skills)} skills. "
-        f"Biography sections: summary={bool(biography.get('summary', False))}, "
-        f"education={bool(biography.get('education', False))}, experience={bool(biography.get('experience', False))}."
+        f"Data fields: summary={bool(normalized_data.get('summary'))}, "
+        f"education={bool(normalized_data.get('education'))}, experience={bool(normalized_data.get('experience'))}."
     )
-    return parsed_data
+    return final_response
 
 if __name__ == "__main__":
     import uvicorn

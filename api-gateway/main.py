@@ -559,17 +559,8 @@ async def get_user_biography(request: Request, user=Depends(verify_token)):
         conn.close()
 
         biography = row[0] if (row and row[0]) else {}
-        return {
-            "user_id": user_id,
-            "name": biography.get("name", ""),
-            "email": biography.get("email", ""),
-            "phone": biography.get("phone", ""),
-            "location": biography.get("location", ""),
-            "title": biography.get("title", ""),
-            "summary": biography.get("summary", ""),
-            "education": biography.get("education", []),
-            "experience": biography.get("experience", []),
-        }
+        biography["user_id"] = user_id
+        return biography
     except Exception as e:
         logger.error(f"DB error fetching biography for user '{user_id}': {str(e)}")
         # Fail gracefully — the frontend falls back to placeholder defaults
