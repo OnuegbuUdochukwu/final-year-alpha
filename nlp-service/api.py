@@ -52,11 +52,16 @@ async def parse_resume(file: UploadFile = File(...)):
     try:
         raw_text = DocumentExtractor.extract_from_bytes(file_bytes, file.filename)
     except Exception as e:
-        logger.error(f"Extraction failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to extract text from document.")
+        logger.error(f"Unexpected error during resume processing: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error.")
+        
+
 
     if not raw_text:
         raise HTTPException(status_code=415, detail="Could not extract text or unsupported format.")
+
+    with open("raw_resume.md", "w", encoding="utf-8") as f:
+        f.write(raw_text)
 
     from shared.llm_service import query_llm_standard, parse_json_from_llm
 
@@ -116,10 +121,16 @@ async def parse_resume(file: UploadFile = File(...)):
         )
     except Exception as e:
         logger.error(f"Failed to communicate with Hugging Face: {e}")
+        if os.path.exists("raw_resume.md"):
+            os.unlink("raw_resume.md")
         raise HTTPException(status_code=502, detail=f"Bad Gateway to Hugging Face Inference API: {str(e)}")
 
     try:
         biography = parse_json_from_llm(content)
+        
+        # Merge statically extracted metadata with the LLM data
+        from reconciler import reconcile_resume_data
+        biography = reconcile_resume_data(raw_text, biography)
         
         # Ensure 'skills' exists as a list for normalization
         raw_skills_list = biography.get("skills", [])
@@ -186,12 +197,19 @@ async def parse_resume(file: UploadFile = File(...)):
             "normalized_skills": [],
             "error": "Could not parse full structure from LLM response.",
         }
+    finally:
+        # Purge the raw markdown to prevent storage bloat
+        if os.path.exists("raw_resume.md"):
+            try:
+                os.unlink("raw_resume.md")
+            except OSError as e:
+                logger.warning(f"Failed to delete raw_resume.md: {e}")
 
     logger.info(
         f"Successfully parsed resume. "
         f"Extracted {len(formatted_skills)} skills. "
-        f"Biography sections: summary={bool(biography['summary'])}, "
-        f"education={bool(biography['education'])}, experience={bool(biography['experience'])}."
+        f"Biography sections: summary={bool(biography.get('summary', False))}, "
+        f"education={bool(biography.get('education', False))}, experience={bool(biography.get('experience', False))}."
     )
     return parsed_data
 
