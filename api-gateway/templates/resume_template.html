@@ -201,11 +201,11 @@
 <body>
 
   <!-- ── Header ────────────────────────────────────────────── -->
-  <div class="header">
-    <h1>{{ name }}</h1>
-    <div class="title">{{ title }}</div>
-    <div class="contact">
-      <p>
+  <div class="header" style="text-align: center; margin-bottom: 18pt;">
+    <h1 style="font-family: 'Playfair Display', serif; font-size: 22pt; font-weight: 700; color: #1a1a2e;">{{ name }}</h1>
+    <h2 class="title" style="font-size: 14pt; color: #1a1a2e; font-weight: 400; margin-top: 4pt; margin-bottom: 0;">{{ title }}</h2>
+    <div class="contact" style="font-size: 10pt; color: #1a1a2e; margin-top: 4pt;">
+      <p style="margin: 0;">
         {% set contacts = [] %}
         {% if email and email.strip() %}{% set _ = contacts.append(email.strip()) %}{% endif %}
         {% if linkedin and linkedin.strip() %}{% set _ = contacts.append(linkedin.strip()) %}{% endif %}
@@ -218,41 +218,41 @@
 
   <!-- ── Professional Summary ────────────────────────────────── -->
   {% if summary %}
-  <div class="section">
-    <div class="section-title">Professional Summary</div>
-    <p class="summary-text">{{ summary }}</p>
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Professional Summary</h2>
+    <p class="summary-text" style="font-size: 9.5pt; color: #374151; line-height: 1.65; margin: 0;">{{ summary }}</p>
   </div>
   {% endif %}
 
   <!-- ── Education ────────────────────────────────────────────── -->
   {% if education %}
-  <div class="section">
-    <div class="section-title">Education</div>
-    <div class="education-entry">{{ education }}</div>
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Education</h2>
+    <p class="education-entry" style="font-size: 9.5pt; color: #1f2937; white-space: pre-wrap; line-height: 1.6; margin: 0;">{{ education }}</p>
   </div>
   {% endif %}
 
   <!-- ── Experience ───────────────────────────────────────────── -->
   {% if experience %}
-  <div class="section">
-    <div class="section-title">Experience</div>
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Experience</h2>
     {% for exp in experience %}
-    <div class="experience-item">
-      <div class="experience-header">
-        <div>
-          <span class="experience-title">{{ exp.title }}</span>
+    <div class="experience-item" style="margin-bottom: 12pt;">
+      <div class="experience-header" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2pt;">
+        <h3 style="margin: 0; font-size: 10pt;">
+          <span class="experience-title" style="font-weight: 700; color: #1a1a2e;">{{ exp.title }}</span>
           {% if exp.company %}
-          <span class="experience-company">, {{ exp.company }}</span>
+          <span class="experience-company" style="font-weight: 600; color: #4f46e5; font-size: 9.5pt;">, {{ exp.company }}</span>
           {% endif %}
-        </div>
-        <div class="experience-meta">
+        </h3>
+        <div class="experience-meta" style="font-size: 8.5pt; color: #6b7280;">
           {{ exp.dates }} {% if exp.location %}| {{ exp.location }}{% endif %}
         </div>
       </div>
       {% if exp.duties %}
-      <ul class="experience-duties">
+      <ul class="experience-duties" style="padding-left: 16pt; margin-top: 4pt; margin-bottom: 0;">
         {% for duty in exp.duties %}
-        <li>{{ duty }}</li>
+        <li style="font-size: 9pt; color: #374151; margin-bottom: 2pt; line-height: 1.5;">{{ duty }}</li>
         {% endfor %}
       </ul>
       {% endif %}
@@ -263,39 +263,39 @@
 
   <!-- ── Target Role ────────────────────────────────────────── -->
   {% if target_role %}
-  <div class="section">
-    <div class="section-title">Career Objective</div>
-    <div class="target-role-box">
-      <div class="target-role-label">Target Role</div>
-      <div class="target-role-value">{{ target_role }}</div>
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Career Objective</h2>
+    <div class="target-role-box" style="background: #eef2ff; border-left: 3pt solid #4f46e5; padding: 8pt 14pt; margin-top: 4pt;">
+      <div class="target-role-label" style="font-size: 8pt; text-transform: uppercase; color: #6366f1; font-weight: 700;">Target Role</div>
+      <p class="target-role-value" style="font-size: 12pt; font-weight: 700; color: #1a1a2e; margin-top: 2pt; margin-bottom: 0;">{{ target_role }}</p>
     </div>
   </div>
   {% endif %}
 
   <!-- ── Skills ─────────────────────────────────────────────── -->
-  <div class="section">
-    <div class="section-title">Skills</div>
-    <div class="skills-wrap">
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Skills</h2>
+    <div class="skills-wrap" style="margin-top: 4pt;">
       {% for skill in cv_skills %}
-      <span class="skill-tag">{{ skill }}</span>
+      <span class="skill-tag" style="display: inline-block; background: #f3f4f6; color: #374151; padding: 3pt 6pt; margin: 2pt 4pt 2pt 0; font-size: 8.5pt;">{{ skill }}</span>
       {% endfor %}
       
       {% for skill in gained_skills %}
-      <span class="skill-tag gained">{{ skill }}</span>
+      <span class="skill-tag gained" style="display: inline-block; background: #f0fdf4; color: #15803d; font-weight: 700; padding: 3pt 6pt; margin: 2pt 4pt 2pt 0; font-size: 8.5pt;">{{ skill }}</span>
       {% endfor %}
     </div>
   </div>
 
   <!-- ── Courses Taken ──────────────────────────────────────── -->
   {% if courses %}
-  <div class="section">
-    <div class="section-title">Relevant Courses &amp; Training</div>
-    <ul class="course-list">
+  <div class="section" style="margin-bottom: 18pt;">
+    <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700; color: #1a1a2e; border-bottom: 1pt solid #d1d5db; padding-bottom: 2pt; margin-bottom: 8pt;">Relevant Courses &amp; Training</h2>
+    <ul class="course-list" style="list-style: none; padding-left: 0; margin-top: 0; margin-bottom: 0;">
       {% for course in courses %}
-      <li>
-        <span class="course-name">{{ course.name }}</span>
+      <li style="padding: 4pt 0; font-size: 9.5pt;">
+        <strong class="course-name" style="font-weight: 600; color: #1f2937;">{{ course.name }}</strong>
         {% if course.provider %}
-        <span class="course-provider">— {{ course.provider }}</span>
+        <span class="course-provider" style="color: #6b7280; font-size: 8.5pt;">— {{ course.provider }}</span>
         {% endif %}
       </li>
       {% endfor %}

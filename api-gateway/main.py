@@ -854,8 +854,12 @@ async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
 
     if requested_format == "docx":
         from html2docx import html2docx
+
+        # Strip the <style> block and its contents entirely
+        clean_html_str = re.sub(r'<style.*?>.*?</style>', '', html_str, flags=re.IGNORECASE | re.DOTALL)
+
         def _render_docx() -> bytes:
-            buf = html2docx(html_str, title=ctx["name"])
+            buf = html2docx(clean_html_str, title=ctx["name"])
             return buf.getvalue()
         
         try:
