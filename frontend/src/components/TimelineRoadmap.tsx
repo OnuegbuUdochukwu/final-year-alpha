@@ -21,6 +21,11 @@ interface TimelineRoadmapProps {
   knownSkills: string[];
 }
 
+const normalizeString = (str: string) => {
+  if (!str) return "";
+  return str.toLowerCase().trim();
+};
+
 const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
   pathData,
   targetRole = 'Career Goal',
@@ -35,11 +40,11 @@ const TimelineRoadmap: React.FC<TimelineRoadmapProps> = ({
     return milestones.map((milestone: any, idx: number) => {
       // Visual Pruning: check if user possesses the skills listed in this milestone
       const milestoneSkills = milestone.skills ?? [];
-      const userSkillsLower = knownSkills.map((s: string) => s.toLowerCase());
+      const userSkillsNormalized = knownSkills.map((s: string) => normalizeString(s));
       
       // Mark complete if they have at least one of the core skills for this block
       const hasSkill = milestoneSkills.some((s: string) => 
-        userSkillsLower.includes(s.toLowerCase())
+        userSkillsNormalized.includes(normalizeString(s))
       );
 
       return {
@@ -170,9 +175,10 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
   const [expanded, setExpanded] = useState(false);
 
   const initialChecked = useMemo(() => {
+    const knownSkillsNormalized = knownSkills.map(ks => normalizeString(ks));
     return (node.subjects || [])
       .map((subj: any) => typeof subj === 'string' ? subj : (subj?.name ?? subj?.title ?? ''))
-      .filter((name: string) => name && knownSkills.some((ks: string) => ks.toLowerCase() === name.toLowerCase()));
+      .filter((name: string) => name && knownSkillsNormalized.includes(normalizeString(name)));
   }, [node.subjects, knownSkills]);
 
   const [checkedSkills, setCheckedSkills] = useState<string[]>(initialChecked);
@@ -303,7 +309,8 @@ const RoadmapStep: React.FC<RoadmapStepProps> = ({
                   {node.subjects.map((subj: any, idx: number) => {
                     const name = typeof subj === 'string' ? subj : (subj?.name ?? subj?.title ?? '');
                     if (!name) return null;
-                    const isChecked = checkedSkills.includes(name);
+                    const checkedSkillsNormalized = checkedSkills.map(s => normalizeString(s));
+                    const isChecked = checkedSkillsNormalized.includes(normalizeString(name));
                     return (
                       <label
                         key={idx}
