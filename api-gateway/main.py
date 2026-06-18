@@ -859,7 +859,7 @@ async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
         clean_html_str = re.sub(r'<style.*?>.*?</style>', '', html_str, flags=re.IGNORECASE | re.DOTALL)
 
         def _render_docx() -> bytes:
-            buf = html2docx(clean_html_str, title=ctx["name"])
+            buf = html2docx(clean_html_str, title="")
             return buf.getvalue()
         
         try:
