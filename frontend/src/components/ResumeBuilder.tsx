@@ -35,11 +35,17 @@ interface ExperienceEntry {
   duties: string[];
 }
 
+interface ContactState {
+  email: string;
+  phone: string;
+  location: string;
+  linkedin: string;
+}
 
 interface ResumeState {
   name: string;
   title: string;
-  contact_string: string;
+  contact: ContactState;
   summary: string;
   education: EduEntry[];
   experience: ExperienceEntry[];
@@ -128,7 +134,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   const [fullResumeData, setFullResumeData] = useState<ResumeState>({
     name: '',
     title: targetRole || '',
-    contact_string: '',
+    contact: { email: '', phone: '', location: '', linkedin: '' },
     summary: '',
     education: [],
     experience: [],
@@ -151,7 +157,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           ...prev,
           name: bio.name || prev.name,
           title: bio.title || prev.title,
-          contact_string: bio.contact_string || prev.contact_string,
+          contact: {
+            email: bio.contact?.email || prev.contact.email,
+            phone: bio.contact?.phone || prev.contact.phone,
+            location: bio.contact?.location || prev.contact.location,
+            linkedin: bio.contact?.linkedin || prev.contact.linkedin,
+          },
           summary: bio.summary || prev.summary,
           education: bio.education && bio.education.length > 0 
             ? bio.education.map((e: any) => ({ ...e, id: uid('edu') })) 
@@ -173,6 +184,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   // ── Simple field updaters ─────────────────────────────────────────────────
   const set = useCallback(<K extends keyof ResumeState>(field: K, value: ResumeState[K]) => {
     setFullResumeData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const setContact = useCallback((field: keyof ContactState, value: string) => {
+    setFullResumeData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   }, []);
 
   const updateExp = useCallback((id: string, field: keyof ExperienceEntry, value: string) => {
@@ -209,9 +224,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       await downloadResume(token, {
         name: fullResumeData.name,
         title: fullResumeData.title,
-        email: fullResumeData.contact_string, // Sending contact_string under email so backend doesn't crash if it expects it
-        location: '',
-        linkedin: '',
+        email: fullResumeData.contact.email,
+        location: fullResumeData.contact.location,
+        linkedin: fullResumeData.contact.linkedin || fullResumeData.contact.phone, // mapping phone to linkedin placeholder in backend
         summary: fullResumeData.summary,
         education: fullResumeData.education.map(e => `${e.dates}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
         experience: fullResumeData.experience.map(e => ({
@@ -281,14 +296,14 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               <Editable as="h1" value={fullResumeData.name} placeholder="Name" onSave={v => set('name', v)} className="text-3xl font-bold text-center" />
               <Editable as="h2" value={fullResumeData.title} placeholder="Title" onSave={v => set('title', v)} className="text-xl text-center mt-1" />
               
-              {/* Contact Line */}
-              <Editable 
-                as="p" 
-                value={fullResumeData.contact_string} 
-                placeholder="Email | Phone | Location" 
-                onSave={v => set('contact_string', v)} 
-                className="text-sm text-center mt-1" 
-              />
+              {/* Contact Line - merged into one paragraph block but using span chunks to remain atomic if desired. For simplicity, binding the whole string to one Editable. */}
+              <div className="text-sm text-center mt-1 flex justify-center gap-1">
+                <Editable as="span" value={fullResumeData.contact.email} placeholder="Email" onSave={v => setContact('email', v)} />
+                <span>|</span>
+                <Editable as="span" value={fullResumeData.contact.phone} placeholder="Phone" onSave={v => setContact('phone', v)} />
+                <span>|</span>
+                <Editable as="span" value={fullResumeData.contact.location} placeholder="Location" onSave={v => setContact('location', v)} />
+              </div>
             </div>
 
             {/* Profile */}
