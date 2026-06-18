@@ -1,7 +1,9 @@
 import io
+import os
+import tempfile
 import logging
 from typing import Optional
-import fitz  # PyMuPDF
+import pymupdf4llm
 import docx
 
 # Configure logging
@@ -13,27 +15,28 @@ class DocumentExtractor:
 
     @staticmethod
     def extract_from_pdf(file_bytes: bytes) -> Optional[str]:
-        """Extracts text from a PDF file using PyMuPDF layout-aware blocks."""
+        """Extracts text from a PDF file as Markdown using pymupdf4llm to preserve visual hierarchy."""
+        pdf_path = None
         try:
-            doc = fitz.open("pdf", file_bytes)
-            text_blocks = []
+            # Write raw bytes to a temporary file
+            fd_pdf, pdf_path = tempfile.mkstemp(suffix=".pdf")
+            with os.fdopen(fd_pdf, 'wb') as f:
+                f.write(file_bytes)
             
-            for page in doc:
-                blocks = page.get_text("blocks")
-                # blocks is a list of tuples: (x0, y0, x1, y1, "text", block_no, block_type)
-                # block_type 0 is text.
-                text_only = [b for b in blocks if b[6] == 0]
-                # Sort blocks by horizontal position first (to group columns), then vertical position
-                text_only.sort(key=lambda b: (b[0], b[1]))
-                
-                for b in text_only:
-                    text_blocks.append(b[4].strip())
-                    
-            text = "\n".join(text_blocks)
-            return DocumentExtractor._clean_text(text)
+            # Extract layout-aware markdown
+            md_text = pymupdf4llm.to_markdown(pdf_path)
+            
+            return DocumentExtractor._clean_text(md_text)
         except Exception as e:
-            logger.error(f"Failed to extract text from PDF: {e}")
+            logger.error(f"Failed to extract text from PDF using pymupdf4llm: {e}")
             return None
+        finally:
+            # Clean up the temporary file
+            if pdf_path and os.path.exists(pdf_path):
+                try:
+                    os.unlink(pdf_path)
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to clean up temp PDF {pdf_path}: {cleanup_err}")
 
     @staticmethod
     def extract_from_docx(file_bytes: bytes) -> Optional[str]:

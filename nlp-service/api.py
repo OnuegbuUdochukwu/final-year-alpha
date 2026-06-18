@@ -64,8 +64,8 @@ async def parse_resume(file: UploadFile = File(...)):
     truncated_text = raw_text[:6000] if len(raw_text) > 6000 else raw_text
 
     extraction_prompt = (
-        "You are an expert data extraction API. Your task is to disentangle the raw resume text "
-        "and return a strictly formatted JSON object matching this exact schema:\n"
+        "You are an expert data extraction API. You are receiving the candidate's resume formatted in Markdown. Pay strict attention to the Markdown syntax (#, ##, **bold**, and list items like * or -). "
+        "Your task is to disentangle the raw resume Markdown and return a strictly formatted JSON object matching this exact schema:\n"
         "{\n"
         '  "name": "Full Name",\n'
         '  "title": "Professional Title",\n'
@@ -91,12 +91,12 @@ async def parse_resume(file: UploadFile = File(...)):
         '  "skills": ["Skill 1", "Skill 2"]\n'
         "}\n\n"
         "IMPORTANT RULES:\n"
-        "- CRITICAL INSTRUCTION FOR EXPERIENCE EXTRACTION: You must strictly maintain the boundaries between different jobs. Associate bullet points ONLY with the specific Job Title and Company that immediately precedes them in the text. You must stop adding bullet points to a job the moment you encounter a new Company Name, Job Title, or Date range. Do not let bullet points from a older role bleed into a newer role.\n"
+        "- CRITICAL INSTRUCTION FOR EXPERIENCE EXTRACTION: Use the Markdown headers and bolded text to identify Job Titles and Company Names. When you see a Markdown list item (* or -), it MUST be assigned to the duties array of the bolded Job Title immediately preceding it. Do not let bullet points bleed into the wrong job.\n"
         "- Each individual item in the 'experience' array MUST have its own correctly populated 'duties' array containing ONLY its respective bullet points.\n"
         "- If the contact information (email, phone) is mashed together or contains typos, do your best to separate them into the 'email' and 'phone' keys.\n"
         "- If a 'Summary' section exists, prioritize it over 'Volunteering' for the 'summary' key.\n"
         "Return ONLY the raw JSON object. Do not include markdown formatting like ```json or any explanation.\n\n"
-        f"Resume Text:\n{truncated_text}"
+        f"Resume Markdown:\n{truncated_text}"
     )
 
     try:
