@@ -8,3 +8,4 @@ psycopg2-binary
 weasyprint
 jinja2
 huggingface_hub
+html2docx

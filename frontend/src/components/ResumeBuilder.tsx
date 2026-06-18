@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
   Download,
   X,
   Loader2,
   AlertCircle,
+  ChevronDown,
+  FileText,
+  File,
 } from 'lucide-react';
 import { getUserBiography, downloadResume, AdditionalSection } from '../api/resumeApi';
 
@@ -144,6 +146,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [biographyLoading, setBiographyLoading] = useState(true);
 
@@ -235,9 +238,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
   };
 
   // ── Download ──────────────────────────────────────────────────────────────
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(async (format: 'pdf' | 'docx') => {
     setIsGenerating(true);
     setError(null);
+    setShowDownloadMenu(false);
     try {
       await downloadResume(token, {
         name: decodeHTMLEntities(fullResumeData.name),
@@ -266,9 +270,10 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           provider: decodeHTMLEntities(c.provider)
         })),
         additional_sections: fullResumeData.additional_sections,
+        format,
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to generate PDF.');
+      setError(err instanceof Error ? err.message : `Failed to generate ${format.toUpperCase()}.`);
     } finally {
       setIsGenerating(false);
     }
@@ -285,14 +290,42 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           <h2 className="font-semibold text-lg text-gray-900 leading-tight">Resume Canvas</h2>
           <p className="text-xs text-gray-500 mt-1">Single-Column ATS Format · Click any text to edit</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleDownload}
-            disabled={isGenerating}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all"
-          >
-            {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating…</> : <><Download className="w-4 h-4" />Download PDF</>}
-          </button>
+        <div className="flex items-center gap-3 relative">
+          <div className="relative">
+            <button
+              onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all"
+            >
+              {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating…</> : <><Download className="w-4 h-4" />Download <ChevronDown className="w-4 h-4 ml-1" /></>}
+            </button>
+            <AnimatePresence>
+              {showDownloadMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-50"
+                >
+                  <button
+                    onClick={() => handleDownload('pdf')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Download as PDF</span>
+                  </button>
+                  <div className="h-px bg-gray-100"></div>
+                  <button
+                    onClick={() => handleDownload('docx')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                  >
+                    <File className="w-4 h-4" />
+                    <span>Download as DOCX</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <button onClick={onClose} className="p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-all">
             <X className="w-5 h-5" />
           </button>

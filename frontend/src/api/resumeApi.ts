@@ -161,7 +161,7 @@ export async function downloadResume(
   }
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-    throw new Error(err.detail ?? "PDF generation failed");
+    throw new Error(err.detail ?? "Resume generation failed");
   }
 
   // Trigger browser download via Blob URL
@@ -169,8 +169,9 @@ export async function downloadResume(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const safeName = (payload.name ?? "resume").replace(/\s+/g, "_");
+  const ext = payload.format === "docx" ? "docx" : "pdf";
   a.href = url;
-  a.download = `resume_${safeName}.pdf`;
+  a.download = `resume_${safeName}.${ext}`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

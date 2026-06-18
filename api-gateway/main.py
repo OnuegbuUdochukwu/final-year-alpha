@@ -698,6 +698,7 @@ class ResumePayload(BaseModel):
     target_role:     Optional[str]            = ""
     courses:         Optional[List[CourseItem]] = []
     additional_sections: Optional[List[AdditionalSectionItem]] = []
+    format:          Optional[str]            = "pdf"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -860,30 +861,59 @@ async def generate_resume(payload: ResumePayload, user=Depends(verify_token)):
         logger.error(f"Template render error: {e}")
         raise HTTPException(status_code=500, detail="Failed to render resume template.")
 
-    # Step 2: Convert HTML → PDF bytes via WeasyPrint (runs in thread pool, 30s timeout)
-    def _render_pdf() -> bytes:
-        return WeasyprintHTML(string=html_str).write_pdf()
+    # Step 2: Convert HTML to the requested format (runs in thread pool, 30s timeout)
+    requested_format = getattr(payload, "format", "pdf").lower()
 
-    try:
-        pdf_bytes: bytes = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, _render_pdf),
-            timeout=30.0
+    if requested_format == "docx":
+        from html2docx import html2docx
+        def _render_docx() -> bytes:
+            buf = html2docx(html_str, title=ctx["name"])
+            return buf.getvalue()
+        
+        try:
+            doc_bytes: bytes = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, _render_docx),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail="DOCX generation timed out (>30s). Please try again.")
+        except Exception as e:
+            logger.error(f"html2docx error for user '{user_id}': {e}")
+            raise HTTPException(status_code=500, detail="DOCX generation failed.")
+
+        filename = f"resume_{ctx['name'].replace(' ', '_')}.docx"
+        logger.info(f"Resume DOCX generated for user '{user_id}' ({len(doc_bytes)} bytes).")
+
+        return StreamingResponse(
+            iter([doc_bytes]),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="PDF generation timed out (>30s). Please try again.")
-    except Exception as e:
-        logger.error(f"WeasyPrint error for user '{user_id}': {e}")
-        raise HTTPException(status_code=500, detail="PDF generation failed.")
 
-    # Step 3: Stream PDF bytes back as a download
-    filename = f"resume_{ctx['name'].replace(' ', '_')}.pdf"
-    logger.info(f"Resume PDF generated for user '{user_id}' ({len(pdf_bytes)} bytes).")
+    else:
+        # Default to PDF
+        def _render_pdf() -> bytes:
+            return WeasyprintHTML(string=html_str).write_pdf()
 
-    return StreamingResponse(
-        iter([pdf_bytes]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
+        try:
+            pdf_bytes: bytes = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, _render_pdf),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail="PDF generation timed out (>30s). Please try again.")
+        except Exception as e:
+            logger.error(f"WeasyPrint error for user '{user_id}': {e}")
+            raise HTTPException(status_code=500, detail="PDF generation failed.")
+
+        filename = f"resume_{ctx['name'].replace(' ', '_')}.pdf"
+        logger.info(f"Resume PDF generated for user '{user_id}' ({len(pdf_bytes)} bytes).")
+
+        return StreamingResponse(
+            iter([pdf_bytes]),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
 
 # ── POST /api/resume/pdf  (alias for /api/v1/resume/generate) ─────────────────
