@@ -16,6 +16,14 @@ interface ResumeUploadProps {
   onSkillsParsed: (skills: ParsedSkill[]) => void;
   topSkill: string | null;
 }
+const loadingSteps = [
+  "Uploading document securely...",
+  "Converting PDF layout to Markdown...",
+  "Running intelligent LLM extraction...",
+  "Categorizing skills and experience...",
+  "Reconciling data and filling gaps...",
+  "Finalizing your customized canvas..."
+];
 
 const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed, topSkill }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -23,6 +31,23 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingText, setLoadingText] = useState(loadingSteps[0]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isUploading) {
+      let stepIndex = 0;
+      interval = setInterval(() => {
+        stepIndex++;
+        if (stepIndex < loadingSteps.length) {
+          setLoadingText(loadingSteps[stepIndex]);
+        }
+      }, 6000);
+    } else {
+      setLoadingText(loadingSteps[0]);
+    }
+    return () => clearInterval(interval);
+  }, [isUploading]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -192,7 +217,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
                   {isUploading ? (
                     <>
                       <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      Parsing&hellip;
+                      {loadingText}
                     </>
                   ) : (
                     <>
