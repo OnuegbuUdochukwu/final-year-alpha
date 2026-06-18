@@ -153,24 +153,29 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
       try {
         const bio: any = await getUserBiography(token);
         if (cancelled) return;
+        
+        // Use empty object as fallback to prevent optional chaining crashes
+        const biographyObj = bio.biography || bio || {};
+        const contactObj = biographyObj.contact || {};
+
         setFullResumeData(prev => ({
           ...prev,
-          name: bio.name || prev.name,
-          title: bio.title || prev.title,
+          name: biographyObj.name || prev.name,
+          title: biographyObj.title || prev.title,
           contact: {
-            email: bio.contact?.email || prev.contact.email,
-            phone: bio.contact?.phone || prev.contact.phone,
-            location: bio.contact?.location || prev.contact.location,
-            linkedin: bio.contact?.linkedin || prev.contact.linkedin,
+            email: contactObj.email || prev.contact.email,
+            phone: contactObj.phone || prev.contact.phone,
+            location: contactObj.location || prev.contact.location,
+            linkedin: contactObj.linkedin || prev.contact.linkedin,
           },
-          summary: bio.summary || prev.summary,
-          education: bio.education && bio.education.length > 0 
-            ? bio.education.map((e: any) => ({ ...e, id: uid('edu') })) 
+          summary: biographyObj.summary || prev.summary,
+          education: biographyObj.education && biographyObj.education.length > 0 
+            ? biographyObj.education.map((e: any) => ({ ...e, id: uid('edu') })) 
             : prev.education,
-          experience: bio.experience && bio.experience.length > 0
-            ? bio.experience.map((e: any) => ({ ...e, id: uid('exp') }))
+          experience: biographyObj.experience && biographyObj.experience.length > 0
+            ? biographyObj.experience.map((e: any) => ({ ...e, id: uid('exp') }))
             : prev.experience,
-          skills: bio.skills || prev.skills,
+          skills: biographyObj.skills || prev.skills,
         }));
       } catch {
         // Graceful fallback
@@ -296,13 +301,13 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               <Editable as="h1" value={fullResumeData.name} placeholder="Name" onSave={v => set('name', v)} className="text-3xl font-bold text-center" />
               <Editable as="h2" value={fullResumeData.title} placeholder="Title" onSave={v => set('title', v)} className="text-xl text-center mt-1" />
               
-              {/* Contact Line - merged into one paragraph block but using span chunks to remain atomic if desired. For simplicity, binding the whole string to one Editable. */}
+              {/* Contact Line */}
               <div className="text-sm text-center mt-1 flex justify-center gap-1">
-                <Editable as="span" value={fullResumeData.contact.email} placeholder="Email" onSave={v => setContact('email', v)} />
-                <span>|</span>
-                <Editable as="span" value={fullResumeData.contact.phone} placeholder="Phone" onSave={v => setContact('phone', v)} />
-                <span>|</span>
-                <Editable as="span" value={fullResumeData.contact.location} placeholder="Location" onSave={v => setContact('location', v)} />
+                <Editable as="span" value={fullResumeData.contact.email || ""} placeholder="" onSave={v => setContact('email', v)} />
+                {fullResumeData.contact.email && <span>|</span>}
+                <Editable as="span" value={fullResumeData.contact.phone || ""} placeholder="" onSave={v => setContact('phone', v)} />
+                {fullResumeData.contact.phone && <span>|</span>}
+                <Editable as="span" value={fullResumeData.contact.location || ""} placeholder="" onSave={v => setContact('location', v)} />
               </div>
             </div>
 
