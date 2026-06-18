@@ -151,7 +151,7 @@ async def parse_resume(file: UploadFile = File(...)):
         }
 
         # Enforce strict flat schema as requested by frontend
-        normalized_data = normalize_resume(llm_data, parsed_data)
+        normalized_data = normalize_resume(llm_data, parsed_data, raw_text)
         normalized_data["filename"] = file.filename
         # We override the raw skills string array with our formatting
         normalized_data["skills"] = formatted_skills

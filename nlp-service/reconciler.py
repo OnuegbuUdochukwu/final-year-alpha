@@ -127,7 +127,31 @@ def reconcile_resume_data(md_text: str, llm_data: dict) -> dict:
 
     return llm_data
 
-def normalize_resume(llm: dict, parsed: dict) -> dict:
+def extract_location_from_lines(md_text: str) -> str:
+    """Simple heuristic to grab City, State if Location is missing."""
+    for line in md_text.split('\n')[:15]:
+        if re.search(r'\b[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}\b', line):
+            return line.strip()
+    return ""
+
+def get_contact_info(llm_contact: dict, md_text: str) -> dict:
+    if not isinstance(llm_contact, dict):
+        llm_contact = {}
+        
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', md_text)
+    email = llm_contact.get("email") or (email_match.group(0) if email_match else "")
+    
+    phone_match = re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', md_text)
+    phone = llm_contact.get("phone") or (phone_match.group(0) if phone_match else "")
+    
+    linkedin_match = re.search(r'(linkedin\.com/in/[\w-]+)', md_text)
+    linkedin = llm_contact.get("linkedin") or (linkedin_match.group(0) if linkedin_match else "")
+    
+    location = llm_contact.get("location") or extract_location_from_lines(md_text)
+
+    return {"email": email, "phone": phone, "location": location, "linkedin": linkedin}
+
+def normalize_resume(llm: dict, parsed: dict, md_text: str) -> dict:
     """
     Enforces a strict, flat schema for the frontend.
     """
@@ -136,18 +160,11 @@ def normalize_resume(llm: dict, parsed: dict) -> dict:
     if not isinstance(parsed, dict):
         parsed = {}
 
-    parsed_contact = parsed.get("biography", {}).get("contact", {})
-    
     return {
         "name": llm.get("name") or parsed.get("biography", {}).get("name", ""),
         "title": llm.get("title") or "",
         "summary": llm.get("summary") or "",
-        "contact": {
-            "email": llm.get("contact", {}).get("email") or parsed_contact.get("email", ""),
-            "phone": llm.get("contact", {}).get("phone") or parsed_contact.get("phone", ""),
-            "location": llm.get("contact", {}).get("location") or parsed_contact.get("location", ""),
-            "linkedin": llm.get("contact", {}).get("linkedin") or parsed_contact.get("linkedin", "")
-        },
+        "contact": get_contact_info(llm.get("contact", {}), md_text),
         "experience": llm.get("experience", []),
         "education": llm.get("education", []),
         "skills": llm.get("skills", [])
