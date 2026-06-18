@@ -64,8 +64,23 @@ async def parse_resume(file: UploadFile = File(...)):
     truncated_text = raw_text[:6000] if len(raw_text) > 6000 else raw_text
 
     extraction_prompt = (
-        "You are an expert data extraction API. You are receiving the candidate's resume formatted in Markdown. Pay strict attention to the Markdown syntax (#, ##, **bold**, and list items like * or -). "
-        "Your task is to disentangle the raw resume Markdown and return a strictly formatted JSON object matching this exact schema:\n"
+        "You are an expert AI resume-parsing API. Your sole purpose is to analyze the provided resume text and return a strictly structured JSON object matching the requested schema. \n\n"
+        "You are receiving the candidate's resume formatted in Markdown. Pay close attention to structural markers like `#`, `##`, `**bold text**`, and list items (`-` or `*`).\n\n"
+        "CRITICAL PARSING DIRECTIVES:\n\n"
+        "1. CONTACT INFORMATION EXTRACTION (HIGH PRIORITY):\n"
+        "   - The candidate's contact information (name, email, phone, location, LinkedIn/portfolio) resides at the very beginning of the Markdown text.\n"
+        "   - This information may completely lack Markdown syntax (it might just be a flat string of words). You MUST explicitly scan the first 10-15 lines of the document to locate and isolate these elements.\n"
+        "   - If the contact info is mashed together or contains messy formatting/typos (e.g., '+1-(234)-555-1234@Ernail' or combined lines), use your semantic understanding to clean, separate, and format them into the distinct JSON keys: `email`, `phone`, `location`, and `linkedin`. Do not return null if the info is present but messy.\n\n"
+        "2. WORK EXPERIENCE & BOUNDARY ENFORCEMENT:\n"
+        "   - Use Markdown headers and bolded labels to identify Job Titles and Company Names.\n"
+        "   - When you see a Markdown list item (`-` or `*`), it represents a specific duty. You MUST assign these list items ONLY to the `duties` array of the bolded Job Title immediately preceding them.\n"
+        "   - Treat job headers like a brick wall. The moment you hit a new bolded Job Title, Company Name, or Date range, you must close out the current experience array index and start a new one. Do not allow bullet points to bleed across boundary lines.\n"
+        "   - Categorize any explicit \"Volunteering\" sections into the `experience` array as individual, fully fleshed-out entries.\n\n"
+        "3. SUMMARY SECTION:\n"
+        "   - Prioritize a \"Summary\" or \"Professional Summary\" block over volunteering information for the root-level `summary` key.\n\n"
+        "OUTPUT CONSTRAINT:\n"
+        "Return ONLY a raw, valid JSON object matching the schema. Do not provide markdown code block wrappers (```json), conversational intro text, or trailing explanations. If an array or string is missing, map it to an empty array [] or empty string \"\".\n\n"
+        "JSON SCHEMA TO MATCH:\n"
         "{\n"
         '  "name": "Full Name",\n'
         '  "title": "Professional Title",\n'
@@ -90,12 +105,6 @@ async def parse_resume(file: UploadFile = File(...)):
         "  ],\n"
         '  "skills": ["Skill 1", "Skill 2"]\n'
         "}\n\n"
-        "IMPORTANT RULES:\n"
-        "- CRITICAL INSTRUCTION FOR EXPERIENCE EXTRACTION: Use the Markdown headers and bolded text to identify Job Titles and Company Names. When you see a Markdown list item (* or -), it MUST be assigned to the duties array of the bolded Job Title immediately preceding it. Do not let bullet points bleed into the wrong job.\n"
-        "- Each individual item in the 'experience' array MUST have its own correctly populated 'duties' array containing ONLY its respective bullet points.\n"
-        "- If the contact information (email, phone) is mashed together or contains typos, do your best to separate them into the 'email' and 'phone' keys.\n"
-        "- If a 'Summary' section exists, prioritize it over 'Volunteering' for the 'summary' key.\n"
-        "Return ONLY the raw JSON object. Do not include markdown formatting like ```json or any explanation.\n\n"
         f"Resume Markdown:\n{truncated_text}"
     )
 
