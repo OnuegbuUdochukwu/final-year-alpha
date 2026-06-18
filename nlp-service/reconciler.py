@@ -150,31 +150,6 @@ def get_contact_info(llm_contact: dict, md_text: str) -> dict:
     location = llm_contact.get("location") or extract_location_from_lines(md_text)
 
     return {"email": email, "phone": phone, "location": location, "linkedin": linkedin}
-def extract_orphaned_sections(md_text: str, known_keys: list) -> dict:
-    """
-    Scans the Markdown for headers not covered by the LLM's known_keys.
-    Returns a dict of orphaned sections: {header_lower: {"title": ..., "items": [...]}}
-    """
-    if not md_text:
-        return {}
-
-    pattern = re.compile(r'^(#{1,3})\s+(.+?)\n(.*?)(?=^#{1,3}\s|\Z)', re.MULTILINE | re.DOTALL)
-    matches = pattern.findall(md_text)
-
-    orphaned_data = {}
-    normalized_known = [k.lower() for k in known_keys]
-
-    for _, header, content in matches:
-        clean_header = header.strip()
-        if clean_header.lower() not in normalized_known:
-            # Clean up the content and split by newlines or bullets into an array
-            items = [line.strip('-* ').strip() for line in content.split('\n') if line.strip()]
-            if items:
-                orphaned_data[clean_header.lower()] = {
-                    "title": clean_header,
-                    "items": items
-                }
-    return orphaned_data
 
 def normalize_resume(llm: dict, parsed: dict, md_text: str) -> dict:
     """
@@ -185,15 +160,6 @@ def normalize_resume(llm: dict, parsed: dict, md_text: str) -> dict:
     if not isinstance(parsed, dict):
         parsed = {}
 
-    # Define the keys the LLM already successfully captured
-    known_keys = [
-        "skills", "biography", "contact", "summary",
-        "experience", "education", "profile", "work experience"
-    ]
-
-    # Run the orphaned-section scraper
-    orphaned_sections = extract_orphaned_sections(md_text, known_keys)
-
     return {
         "name": llm.get("name") or parsed.get("biography", {}).get("name", ""),
         "title": llm.get("title") or "",
@@ -201,6 +167,5 @@ def normalize_resume(llm: dict, parsed: dict, md_text: str) -> dict:
         "contact": get_contact_info(llm.get("contact", {}), md_text),
         "experience": llm.get("experience", []),
         "education": llm.get("education", []),
-        "skills": llm.get("skills", []),
-        "additional_sections": list(orphaned_sections.values())
+        "skills": llm.get("skills", [])
     }
