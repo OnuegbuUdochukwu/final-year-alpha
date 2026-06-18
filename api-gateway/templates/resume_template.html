@@ -19,8 +19,7 @@
 
     /* ── Header ───────────────────────────────────────────────── */
     .header {
-      border-bottom: 2.5pt solid #4f46e5;
-      padding-bottom: 12pt;
+      text-align: center;
       margin-bottom: 18pt;
     }
 
@@ -32,16 +31,16 @@
     }
 
     .header .title {
-      font-size: 11pt;
-      color: #4f46e5;
-      font-weight: 600;
-      margin-top: 2pt;
+      font-size: 14pt;
+      color: #1a1a2e;
+      font-weight: 400;
+      margin-top: 4pt;
     }
 
     .header .contact {
-      font-size: 9pt;
-      color: #6b7280;
-      margin-top: 6pt;
+      font-size: 10pt;
+      color: #1a1a2e;
+      margin-top: 4pt;
     }
 
     .header .contact span {
@@ -54,57 +53,35 @@
     }
 
     .section-title {
-      font-size: 9pt;
+      font-size: 12pt;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.2pt;
-      color: #4f46e5;
-      border-bottom: 0.75pt solid #e0e7ff;
-      padding-bottom: 3pt;
-      margin-bottom: 10pt;
+      color: #1a1a2e;
+      border-bottom: 1pt solid #d1d5db;
+      padding-bottom: 2pt;
+      margin-bottom: 8pt;
     }
 
-    /* ── Skills Grid ──────────────────────────────────────────── */
-    .skills-grid {
-      display: table;
-      width: 100%;
-      table-layout: fixed;
-    }
-
-    .skills-col {
-      display: table-cell;
-      width: 50%;
-      vertical-align: top;
-      padding-right: 16pt;
-    }
-
-    .skills-col:last-child { padding-right: 0; }
-
-    .skills-col-title {
-      font-size: 8.5pt;
-      font-weight: 700;
-      color: #374151;
-      margin-bottom: 6pt;
-      text-transform: uppercase;
-      letter-spacing: 0.8pt;
+    /* ── Skills Wrap ──────────────────────────────────────────── */
+    .skills-wrap {
+      display: block;
+      margin-top: 4pt;
     }
 
     .skill-tag {
       display: inline-block;
-      background: #f0f0ff;
-      color: #3730a3;
-      border: 0.5pt solid #c7d2fe;
+      background: #f3f4f6; /* gray-100 */
+      color: #374151; /* gray-700 */
       border-radius: 3pt;
-      padding: 2pt 7pt;
-      margin: 2pt 3pt 2pt 0;
+      padding: 3pt 6pt;
+      margin: 2pt 4pt 2pt 0;
       font-size: 8.5pt;
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .skill-tag.gained {
-      background: #ecfdf5;
-      color: #065f46;
-      border-color: #a7f3d0;
+      background: #f0fdf4; /* green-50 */
+      color: #15803d; /* green-700 */
+      font-weight: 700;
     }
 
     /* ── Courses List ─────────────────────────────────────────── */
@@ -231,10 +208,10 @@
     </div>
   </div>
 
-  <!-- ── Professional Summary ────────────────────────────────── -->
+  <!-- ── Profile ────────────────────────────────── -->
   {% if summary %}
   <div class="section">
-    <div class="section-title">Professional Summary</div>
+    <div class="section-title">Profile</div>
     <p class="summary-text">{{ summary }}</p>
   </div>
   {% endif %}
@@ -290,26 +267,14 @@
   <!-- ── Skills ─────────────────────────────────────────────── -->
   <div class="section">
     <div class="section-title">Skills</div>
-    <div class="skills-grid">
-
-      {% if cv_skills %}
-      <div class="skills-col">
-        <div class="skills-col-title">Verified (from CV)</div>
-        {% for skill in cv_skills %}
-        <span class="skill-tag">{{ skill }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% if gained_skills %}
-      <div class="skills-col">
-        <div class="skills-col-title">Newly Gained</div>
-        {% for skill in gained_skills %}
-        <span class="skill-tag gained">{{ skill }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-
+    <div class="skills-wrap">
+      {% for skill in cv_skills %}
+      <span class="skill-tag">{{ skill }}</span>
+      {% endfor %}
+      
+      {% for skill in gained_skills %}
+      <span class="skill-tag gained">{{ skill }}</span>
+      {% endfor %}
     </div>
   </div>
 
