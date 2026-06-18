@@ -329,9 +329,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               </p>
             </div>
 
-            {/* Profile */}
+            {/* Professional Summary */}
             <div>
-              <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-2">Profile</h3>
+              <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-2">Professional Summary</h3>
               <Editable as="p" multiline value={fullResumeData.summary} placeholder="Summary" onSave={v => set('summary', v)} className="text-sm leading-relaxed" />
             </div>
 
