@@ -54,6 +54,7 @@ export interface ResumePayload {
   title?: string;
   email?: string;
   linkedin?: string;
+  phone?: string;
   location?: string;
   /** User-edited professional summary text (from canvas) */
   summary?: string;

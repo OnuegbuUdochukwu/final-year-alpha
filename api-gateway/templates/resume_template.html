@@ -201,9 +201,12 @@
     <div class="title">{{ title }}</div>
     <div class="contact">
       <p>
-        {% if email %}{{ email }} | {% endif %}
-        {% if linkedin %}{{ linkedin }} | {% endif %}
-        {% if location %}{{ location }}{% endif %}
+        {% set contacts = [] %}
+        {% if email and email.strip() %}{% set _ = contacts.append(email.strip()) %}{% endif %}
+        {% if linkedin and linkedin.strip() %}{% set _ = contacts.append(linkedin.strip()) %}{% endif %}
+        {% if phone and phone.strip() %}{% set _ = contacts.append(phone.strip()) %}{% endif %}
+        {% if location and location.strip() %}{% set _ = contacts.append(location.strip()) %}{% endif %}
+        {{ contacts | join(' | ') }}
       </p>
     </div>
   </div>

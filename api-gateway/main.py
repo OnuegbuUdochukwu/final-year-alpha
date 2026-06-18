@@ -680,6 +680,7 @@ class ResumePayload(BaseModel):
     title:           Optional[str]            = "Career Changer"
     email:           Optional[str]            = ""
     linkedin:        Optional[str]            = ""
+    phone:           Optional[str]            = ""
     location:        Optional[str]            = ""
     # User-edited biography text forwarded from the canvas
     summary:         Optional[str]            = ""
@@ -739,6 +740,7 @@ def _build_template_context(user: dict, payload: ResumePayload) -> dict:
         "title":        _sanitise(payload.title or "Career Changer"),
         "email":        _sanitise(payload.email or ""),
         "linkedin":     _sanitise(payload.linkedin or ""),
+        "phone":        _sanitise(payload.phone or ""),
         "location":     _sanitise(payload.location or ""),
         # User-edited canvas text; html.escape is applied to prevent XSS
         "summary":      _sanitise(payload.summary or ""),

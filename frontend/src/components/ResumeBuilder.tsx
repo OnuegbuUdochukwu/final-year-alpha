@@ -229,6 +229,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
         email: fullResumeData.contact.email,
         location: fullResumeData.contact.location,
         linkedin: fullResumeData.contact.linkedin,
+        phone: fullResumeData.contact.phone,
         summary: fullResumeData.summary,
         education: fullResumeData.education.map(e => `${e.dates}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
         experience: fullResumeData.experience.map(e => ({
@@ -302,9 +303,12 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
               
               {/* Contact Line */}
               <p className="text-sm text-center mt-1" contentEditable={true} suppressContentEditableWarning={true}>
-                {fullResumeData?.contact?.email || ""} | 
-                {fullResumeData?.contact?.linkedin || ""} | 
-                {fullResumeData?.contact?.location || ""}
+                {[
+                  fullResumeData?.contact?.email,
+                  fullResumeData?.contact?.linkedin,
+                  fullResumeData?.contact?.phone,
+                  fullResumeData?.contact?.location
+                ].filter(item => item && item.trim() !== "").join(" | ")}
               </p>
             </div>
 
