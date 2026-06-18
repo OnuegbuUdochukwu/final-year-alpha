@@ -74,6 +74,7 @@ export interface ResumePayload {
   target_role?: string;
   courses?: CourseItem[];
   additional_sections?: AdditionalSection[];
+  format?: 'pdf' | 'docx';
 }
 
 export interface ResumeSkillsResponse {
