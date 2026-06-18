@@ -218,31 +218,48 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     }));
   }, []);
 
+  // ── Utility: Decode HTML Entities ─────────────────────────────────────────
+  const decodeHTMLEntities = (text?: string | null): string => {
+    if (!text) return "";
+    return text
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  };
+
   // ── Download ──────────────────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
     try {
       await downloadResume(token, {
-        name: fullResumeData.name,
-        title: fullResumeData.title,
-        email: fullResumeData.contact.email,
-        location: fullResumeData.contact.location,
-        linkedin: fullResumeData.contact.linkedin,
-        phone: fullResumeData.contact.phone,
-        summary: fullResumeData.summary,
-        education: fullResumeData.education.map(e => `${e.dates}, ${e.degree}, ${e.school}, ${e.location}`).join('\n\n'),
+        name: decodeHTMLEntities(fullResumeData.name),
+        title: decodeHTMLEntities(fullResumeData.title),
+        email: decodeHTMLEntities(fullResumeData.contact.email),
+        location: decodeHTMLEntities(fullResumeData.contact.location),
+        linkedin: decodeHTMLEntities(fullResumeData.contact.linkedin),
+        phone: decodeHTMLEntities(fullResumeData.contact.phone),
+        summary: decodeHTMLEntities(fullResumeData.summary),
+        education: fullResumeData.education
+          .map(e => `${decodeHTMLEntities(e.dates)}, ${decodeHTMLEntities(e.degree)}, ${decodeHTMLEntities(e.school)}, ${decodeHTMLEntities(e.location)}`)
+          .join('\n\n'),
         experience: fullResumeData.experience.map(e => ({
-          title: e.title,
-          company: e.company,
-          location: e.location,
-          dates: e.dates,
-          duties: e.duties
+          title: decodeHTMLEntities(e.title),
+          company: decodeHTMLEntities(e.company),
+          location: decodeHTMLEntities(e.location),
+          dates: decodeHTMLEntities(e.dates),
+          duties: e.duties.map(d => decodeHTMLEntities(d))
         })),
-        cv_skills: cvSkills,
-        gained_skills: newRoadmapSkills,
-        target_role: targetRole,
-        courses: courses,
+        cv_skills: cvSkills.map(s => decodeHTMLEntities(s)),
+        gained_skills: newRoadmapSkills.map(s => decodeHTMLEntities(s)),
+        target_role: decodeHTMLEntities(targetRole),
+        courses: courses.map(c => ({
+          ...c,
+          name: decodeHTMLEntities(c.name),
+          provider: decodeHTMLEntities(c.provider)
+        })),
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to generate PDF.');
