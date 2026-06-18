@@ -6,7 +6,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { getUserBiography, downloadResume } from '../api/resumeApi';
+import { getUserBiography, downloadResume, AdditionalSection } from '../api/resumeApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,7 @@ interface ResumeState {
   education: EduEntry[];
   experience: ExperienceEntry[];
   skills: string[];
+  additional_sections: AdditionalSection[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
     education: [],
     experience: [],
     skills: [],
+    additional_sections: [],
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -176,6 +178,9 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
             ? biographyObj.experience.map((e: any) => ({ ...e, id: uid('exp') }))
             : prev.experience,
           skills: biographyObj.skills || prev.skills,
+          additional_sections: Array.isArray(biographyObj.additional_sections)
+            ? biographyObj.additional_sections
+            : prev.additional_sections,
         }));
       } catch {
         // Graceful fallback
@@ -260,6 +265,7 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
           name: decodeHTMLEntities(c.name),
           provider: decodeHTMLEntities(c.provider)
         })),
+        additional_sections: fullResumeData.additional_sections,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to generate PDF.');
@@ -395,6 +401,26 @@ const ResumeBuilder: React.FC<ResumeBuilderProps> = ({
                 })}
               </div>
             </div>
+
+            {/* Additional Orphaned Sections (e.g., Projects, Certifications) */}
+            {fullResumeData.additional_sections.length > 0 && (
+              <div className="mt-4 flex flex-col gap-4">
+                {fullResumeData.additional_sections.map((section, idx) => (
+                  <div key={idx}>
+                    <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-2 mt-4 uppercase text-gray-900">
+                      {section.title}
+                    </h3>
+                    <ul className="list-disc list-inside text-sm text-gray-800 space-y-1">
+                      {section.items.map((item, itemIndex) => (
+                        <li key={itemIndex} className="leading-relaxed">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
 
           </div>
         )}

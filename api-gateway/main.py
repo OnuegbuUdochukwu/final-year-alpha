@@ -674,6 +674,10 @@ class CourseItem(BaseModel):
     name: str
     provider: Optional[str] = ""
 
+class AdditionalSectionItem(BaseModel):
+    title: str
+    items: Optional[List[str]] = []
+
 class ResumePayload(BaseModel):
     """Unified request body for both /preview and /generate."""
     name:            Optional[str]            = "Professional"
@@ -693,6 +697,7 @@ class ResumePayload(BaseModel):
     order:           Optional[List[str]]      = []
     target_role:     Optional[str]            = ""
     courses:         Optional[List[CourseItem]] = []
+    additional_sections: Optional[List[AdditionalSectionItem]] = []
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -760,6 +765,13 @@ def _build_template_context(user: dict, payload: ResumePayload) -> dict:
         "courses":      [
             {"name": _sanitise(c.name), "provider": _sanitise(c.provider or "")}
             for c in (payload.courses or [])
+        ],
+        "additional_sections": [
+            {
+                "title": _sanitise(s.title),
+                "items": [_sanitise(item) for item in (s.items or [])]
+            }
+            for s in (payload.additional_sections or [])
         ],
         "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y"),
     }
