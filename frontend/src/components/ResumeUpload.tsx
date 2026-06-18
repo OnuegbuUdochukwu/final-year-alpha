@@ -31,20 +31,20 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadingText, setLoadingText] = useState(loadingSteps[0]);
+  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isUploading) {
-      let stepIndex = 0;
+      setCurrentStep(0);
       interval = setInterval(() => {
-        stepIndex++;
-        if (stepIndex < loadingSteps.length) {
-          setLoadingText(loadingSteps[stepIndex]);
-        }
+        setCurrentStep((prev) => {
+          if (prev < loadingSteps.length - 1) return prev + 1;
+          return prev;
+        });
       }, 6000);
     } else {
-      setLoadingText(loadingSteps[0]);
+      setCurrentStep(0);
     }
     return () => clearInterval(interval);
   }, [isUploading]);
@@ -217,7 +217,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
                   {isUploading ? (
                     <>
                       <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      {loadingText}
+                      {loadingSteps[currentStep]}
                     </>
                   ) : (
                     <>
@@ -227,6 +227,26 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onPathFound, onSkillsParsed
                   )}
                 </button>
               </div>
+
+              {/* Segmented Progress Bar */}
+              {isUploading && (
+                <div className="flex flex-col gap-2 w-full mt-4">
+                  <div className="flex justify-between items-center text-xs font-medium text-clay-500">
+                    <span>Step {currentStep + 1} of {loadingSteps.length}</span>
+                    <span>{Math.round(((currentStep + 1) / loadingSteps.length) * 100)}%</span>
+                  </div>
+                  <div className="flex gap-1 h-1.5 w-full">
+                    {loadingSteps.map((_, index) => (
+                      <div
+                        key={index}
+                        className={`flex-1 rounded-full transition-all duration-500 ease-in-out ${
+                          index <= currentStep ? 'bg-rust-500' : 'bg-clay-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <motion.div
