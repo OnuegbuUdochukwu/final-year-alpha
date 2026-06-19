@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Target, Loader2, X, AlertCircle } from 'lucide-react';
 import client from '../api/client';
+import ConstraintSelector from './ConstraintSelector';
 
 interface TargetSelectionFormProps {
   onPathFound: (pathData: any) => void;
@@ -28,6 +29,8 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
       return [];
     }
   });
+  const [maxBudget, setMaxBudget] = useState<number>(5000);
+  const [maxHours, setMaxHours] = useState<number>(1000);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = useCallback(async (value: string) => {
@@ -80,6 +83,8 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
         params: {
           target_role: selectedRole,
           skills: resumeSkills?.join(','),
+          max_budget: maxBudget || 10000,
+          max_hours: maxHours || 2000,
         },
       });
       onPathFound({ ...response.data, target_role: selectedRole });
@@ -210,6 +215,13 @@ const TargetSelectionForm: React.FC<TargetSelectionFormProps> = ({
             </div>
           )}
         </div>
+
+        <ConstraintSelector 
+          maxBudget={maxBudget} 
+          setMaxBudget={setMaxBudget} 
+          maxHours={maxHours} 
+          setMaxHours={setMaxHours} 
+        />
 
         {error && (
           <motion.div
